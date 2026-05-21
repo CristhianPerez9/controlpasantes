@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Asistencia COMTECO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#eef2f5] min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-xl border border-gray-100">
+        
+        <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-[#2c3e50] tracking-tight">
+                Control de Asistencia COMTECO
+            </h2>
+            <p class="text-sm text-gray-400 mt-1">Panel de Navegación Principal</p>
+        </div>
+
+        <div class="flex flex-col gap-4">
+            
+            <a href="{% url 'registrar_asistencia' %}" 
+               class="w-full bg-[#3498db] hover:bg-[#2980b9] text-white font-semibold py-3.5 px-4 rounded-xl text-center block transition-all shadow-sm active:scale-[0.99]">
+                Registro de Asistencia (Pasantes)
+            </a>
+
+            <a href="{% url 'panel_supervisor' %}" 
+               class="w-full bg-[#3498db] hover:bg-[#2980b9] text-white font-semibold py-3.5 px-4 rounded-xl text-center block transition-all shadow-sm active:scale-[0.99]">
+                Panel del Supervisor
+            </a>
+
+            <a href="{% url 'listado_detallado' %}" 
+               class="w-full bg-[#3498db] hover:bg-[#2980b9] text-white font-semibold py-3.5 px-4 rounded-xl text-center block transition-all shadow-sm active:scale-[0.99]">
+                Listado Detallado
+            </a>
+
+            <a href="{% url 'generacion_reportes' %}" 
+               class="w-full bg-[#3498db] hover:bg-[#2980b9] text-white font-semibold py-3.5 px-4 rounded-xl text-center block transition-all shadow-sm active:scale-[0.99]">
+                Generación de Reportes
+            </a>
+        </div>
+
+        <div class="mt-8 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+            <div>
+                <span>Usuario Activo: <strong class="text-gray-600">{{ user.username }}</strong></span>
+            </div>
+            
+            <form action="{% url 'logout' %}" method="post" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-red-500 hover:text-red-700 hover:underline font-medium bg-transparent border-none p-0 cursor-pointer transition-colors">
+                    Cerrar Sesión Corporativa
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+</body>
+</html>
+</html>
