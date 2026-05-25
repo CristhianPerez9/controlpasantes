@@ -7,8 +7,6 @@ class Pasante(models.Model):
     area = models.CharField(max_length=100)
     supervisor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='pasantes_a_cargo')
     fecha_nacimiento = models.DateField(null=True, blank=True)
-    
-    # Atributos de contrato y control de horas obligatorias
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_fin = models.DateField(null=True, blank=True)
     horas_requeridas = models.IntegerField(default=240)
@@ -38,14 +36,19 @@ class TurnoPasante(models.Model):
         ('VI', 'Viernes'),
         ('SA', 'Sábado'),
     ]
+    TIPO_TURNO = [
+        ('MAÑANA', 'Turno Mañana'),
+        ('TARDE', 'Turno Tarde'),
+    ]
     pasante = models.ForeignKey(Pasante, on_delete=models.CASCADE, related_name='turnos')
     dia = models.CharField(max_length=2, choices=DIAS_SEMANA)
+    turno = models.CharField(max_length=10, choices=TIPO_TURNO, default='MAÑANA')
     hora_entrada = models.TimeField()
     hora_salida = models.TimeField()
     observacion = models.CharField(max_length=200, blank=True, null=True)
 
     class Meta:
-        unique_together = ('pasante', 'dia')
+        unique_together = ('pasante', 'dia', 'turno')
 
     def __str__(self):
-        return f"{self.pasante.nombre_completo} - {self.get_dia_display()}"
+        return f"{self.pasante.nombre_completo} - {self.get_dia_display()} ({self.turno})"

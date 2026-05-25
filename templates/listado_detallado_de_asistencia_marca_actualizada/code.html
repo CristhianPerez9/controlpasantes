@@ -1,9 +1,10 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Pasantes - COMTECO</title>
+    <title>Control de Asistencia Detallado - COMTECO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
@@ -11,40 +12,99 @@
 </head>
 <body class="bg-[#f4f5f6] min-h-screen flex flex-col">
     <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 shrink-0">
-        <div class="flex items-center gap-2">
-            <div class="w-6 h-6 bg-[#cc0000] rounded-full flex items-center justify-center text-white text-xs font-black">C</div>
+        <div class="flex items-center gap-3">
+            <img src="{% static 'logo.png' %}" alt="Logo COMTECO" class="h-7 w-7 object-contain">
             <h1 class="text-sm font-bold text-slate-700 tracking-tight">COMTECO <span class="text-slate-400 font-medium">Pasantes</span></h1>
         </div>
-        <div class="text-xs font-semibold text-slate-500 flex items-center gap-2"><i class="fa-regular fa-user-circle text-lg"></i> <span>{{ user.username }}</span></div>
+        <div class="flex items-center gap-2 cursor-pointer text-slate-500 hover:text-slate-800 text-sm">
+            <i class="fa-regular fa-user-circle text-lg"></i><span class="text-xs font-semibold">{{ user.username }}</span>
+        </div>
     </header>
+
     <div class="flex-1 flex overflow-hidden">
         <aside class="w-64 bg-white border-r border-slate-200 p-4 flex flex-col justify-between shrink-0">
             <div class="flex flex-col gap-6">
                 <div class="px-2 pt-2"><h2 class="text-xs font-bold text-[#cc0000] uppercase tracking-wider">Administración</h2></div>
                 <nav class="flex flex-col gap-1 text-xs font-semibold text-slate-600">
                     <a href="{% url 'panel_supervisor' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-table-cells-large text-sm"></i> Panel Control</a>
-                    <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#cc0000] text-white shadow-md"><i class="fa-solid fa-users text-sm"></i> Lista Pasantes</a>
-                    <a href="{% url 'listado_detallado' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-clock-rotate-left text-sm"></i> Control Asistencia</a>
+                    <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-users text-sm"></i> Lista Pasantes</a>
+                    <a href="{% url 'listado_detallado' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-red-50 text-[#cc0000] transition-colors"><i class="fa-solid fa-clock-rotate-left text-sm"></i> Control Asistencia</a>
+                    <a href="{% url 'gestionar_turnos' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-calendar-days text-sm"></i> Esquema de Turnos</a>
                     <a href="{% url 'generacion_reportes' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-file-invoice text-sm"></i> Generar Reportes</a>
                 </nav>
             </div>
+            <a href="{% url 'registrar_asistencia' %}" class="bg-[#cc0000] hover:bg-red-700 text-white text-xs font-bold py-3 px-4 rounded-xl text-center shadow-md"><i class="fa-solid fa-right-to-bracket mr-1"></i> Registrar Entrada</a>
         </aside>
-        <main class="flex-1 p-8 overflow-y-auto flex flex-col gap-6">
-            <div><h2 class="text-2xl font-bold text-slate-800">Lista de Pasantes</h2><p class="text-sm text-slate-400 mt-0.5">Nómina del personal técnico asignado a la {{ mi_unidad }}.</p></div>
+
+        <main class="flex-1 p-8 overflow-y-auto flex flex-col gap-8">
+            <div class="flex justify-between items-end">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Control de Asistencia Detallado</h2>
+                    <p class="text-sm text-slate-400 mt-0.5">Historial consolidado de marcas por pasante y fecha.</p>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl py-3 px-5 shadow-sm flex items-center gap-4">
+                    <div class="p-2 bg-red-50 rounded-xl text-[#cc0000]"><i class="fa-solid fa-business-time text-lg"></i></div>
+                    <div>
+                        <span class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Horas Totales Área</span>
+                        <span class="text-xl font-black text-slate-800">{{ horas_totales }} hrs</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <table class="w-full text-left text-xs border-collapse">
                     <thead>
                         <tr class="bg-slate-50 border-b border-slate-200 font-bold text-slate-400 uppercase text-[10px] tracking-wider">
-                            <th class="py-4 px-6">Nombre Completo</th><th class="py-4 px-6">Carnet de Identidad (CI)</th><th class="py-4 px-6">Área / Dependencia</th><th class="py-4 px-6">Fecha de Nacimiento</th>
+                            <th class="py-3.5 px-6">Pasante</th>
+                            <th class="py-3.5 px-4">Fecha</th>
+                            <th class="py-3.5 px-4 text-center">Hora Ingreso</th>
+                            <th class="py-3.5 px-4 text-center">Hora Salida</th>
+                            <th class="py-3.5 px-6 text-center">Total Horas</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 font-medium text-slate-700 text-sm">
-                        {% for p in pasantes %}
-                        <tr class="hover:bg-slate-50/50">
-                            <td class="py-4 px-6 font-bold text-slate-900">{{ p.nombre_completo }}</td>
-                            <td class="py-4 px-6 text-slate-500 font-mono">{{ p.ci }}</td>
-                            <td class="py-4 px-6 text-slate-600">{{ p.area }}</td>
-                            <td class="py-4 px-6 text-slate-400">{{ p.fecha_nacimiento|date:"d \d\e F \d\e Y"|default:"01 de enero de 2000" }}</td>
+                    <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+                        {% for fila in asistencias_agrupadas %}
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            <td class="py-3.5 px-6 font-bold text-slate-900 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                {{ fila.pasante.nombre_completo }}
+                            </td>
+                            <td class="py-3.5 px-4 text-slate-500 font-semibold">{{ fila.fecha|date:"d/m/Y" }}</td>
+                            
+                            <td class="py-3.5 px-4 text-center font-bold text-emerald-600">
+                                {% if fila.entrada %}
+                                    <span class="bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                                        <i class="fa-solid fa-arrow-right-to-bracket mr-1 text-[10px]"></i>{{ fila.entrada|time:"H:i:s" }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-slate-300 italic font-normal">Sin marca</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="py-3.5 px-4 text-center font-bold text-rose-600">
+                                {% if fila.salida %}
+                                    <span class="bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg">
+                                        <i class="fa-solid fa-arrow-right-from-bracket mr-1 text-[10px]"></i>{{ fila.salida|time:"H:i:s" }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-slate-300 italic font-normal">Sin marca</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="py-3.5 px-6 text-center font-bold text-slate-800 bg-slate-50/30">
+                                {% if fila.horas_dia > 0 %}
+                                    <span class="text-sm font-black text-slate-700">{{ fila.horas_dia }}</span> <span class="text-[10px] text-slate-400 font-semibold">hrs</span>
+                                {% else %}
+                                    <span class="text-slate-300 font-normal">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="py-16 text-center text-slate-400 italic bg-white">
+                                <i class="fa-solid fa-folder-open text-3xl block mb-2 text-slate-200"></i>
+                                No hay registros de asistencia disponibles para mostrar.
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
