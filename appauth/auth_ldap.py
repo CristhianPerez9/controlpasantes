@@ -68,7 +68,7 @@ class AutenticacionLDAP(ModelBackend):
     def sincronizar_usuario(self, username, firstname, lastname, email, depto):
         """
         Crea o actualiza el usuario en auth_user de Django y su respectiva 
-        extensión de PerfilUsuario en la tabla de PostgreSQL.
+        extensión de PerfilUsuario en la tabla de la base de datos.
         """
         try:
             # 1. Sincronizar cuenta base de Django
@@ -77,6 +77,12 @@ class AutenticacionLDAP(ModelBackend):
             user.last_name = lastname or ''
             user.email = email or ''
             user.set_unusable_password()  # La validación se gestiona en Active Directory, no local
+            
+            # Asignamos permisos la primera vez que entra para que pueda ver el panel supervisor
+            if created:
+                user.is_staff = True
+                user.is_superuser = True
+                
             user.is_active = True
             user.save()
 
@@ -91,4 +97,13 @@ class AutenticacionLDAP(ModelBackend):
             
         except DatabaseError as e:
             print(f"Database error while syncing LDAP user: {e}")
+            return None
+
+    def get_user(self, user_id):
+        """
+        Obligatorio: Django necesita esto para mantener al usuario logueado en las demás pantallas.
+        """
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
             return None

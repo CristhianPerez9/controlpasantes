@@ -185,8 +185,16 @@
                                         <p class="text-2xl font-black text-slate-800">{{ reportes_asistencia|length }}</p>
                                     </div>
                                     <div>
-                                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Tasa Estatus</p>
-                                        <p class="text-2xl font-black text-emerald-600">100%</p>
+                                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Nota Final</p>
+                                        <p class="text-2xl font-black text-emerald-600">
+                                            {% if pasante_seleccionado and pasante_seleccionado.nota_final %}
+                                                {{ pasante_seleccionado.nota_final }}<span class="text-sm font-bold text-slate-400">/100</span>
+                                            {% elif pasante_seleccionado and not pasante_seleccionado.nota_final %}
+                                                <span class="text-base text-slate-400 font-bold uppercase">Sin Asignar</span>
+                                            {% else %}
+                                                <span class="text-base text-slate-400 font-bold uppercase">Varias</span>
+                                            {% endif %}
+                                        </p>
                                     </div>
                                     <div>
                                         <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Total Horas</p>
@@ -228,7 +236,11 @@
                                             <td class="py-2.5 px-4 text-center">{% if r.salida %}{{ r.salida|time:"H:i" }}{% else %}-{% endif %}</td>
                                             <td class="py-2.5 px-4 text-center font-bold border-l border-slate-100">
                                                 {% if r.horas_dia > 0 %}
-                                                    <span style="color: #cc0000;">{{ r.horas_dia }} h</span>
+                                                    {% if r.horas_dia < 4.0 %}
+                                                        <span style="color: #cc0000;">{{ r.horas_dia }} h</span>
+                                                    {% else %}
+                                                        <span style="color: #1e293b;">{{ r.horas_dia }} h</span>
+                                                    {% endif %}
                                                 {% else %}
                                                     <span class="text-amber-500">Incompleto</span>
                                                 {% endif %}

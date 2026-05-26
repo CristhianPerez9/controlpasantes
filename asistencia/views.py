@@ -1,5 +1,6 @@
 import os
 import csv
+import datetime  
 from datetime import datetime, date
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -9,6 +10,7 @@ from django.http import HttpResponse
 from django.conf import settings
 from .models import Pasante, RegistroAsistencia, TurnoPasante
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator  
 
 # --- 1. CARGADOR AUXILIAR ---
 @login_required
@@ -147,53 +149,89 @@ def panel_supervisor(request):
     }
     return render(request, 'panel_del_supervisor_marca_actualizada/code.html', context)
 
+
 @login_required
 def listado_detallado(request):
     supervisor_actual = request.user
     mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
     
     if supervisor_actual.is_superuser:
-        asistencias = RegistroAsistencia.objects.all().select_related('pasante').order_by('-fecha', 'hora')
+        pasantes_queryset = Pasante.objects.all().order_by('nombre_completo')
+        queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
     else:
-        pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad))
-        asistencias = RegistroAsistencia.objects.filter(pasante__in=pasantes).select_related('pasante').order_by('-fecha', 'hora')
+        pasantes_queryset = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
+        queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_queryset).select_related('pasante')
+
+    lista_con_calculos = []
+    horas_area = 0.0
+    
+    for p in pasantes_queryset:
+        marcas_p = RegistroAsistencia.objects.filter(pasante=p).order_by('fecha', 'hora')
+        horas_totales_p = 0.0
+        marcas_por_dia_p = {}
         
-    marcas_agrupadas = {}
-    for m in asistencias:
-        clave = (m.pasante, m.fecha)
-        if clave not in marcas_agrupadas:
-            marcas_agrupadas[clave] = {'entrada': None, 'salida': None}
+        for m in marcas_p:
+            if m.fecha not in marcas_por_dia_p:
+                marcas_por_dia_p[m.fecha] = []
+            marcas_por_dia_p[m.fecha].append(m)
             
-        if m.tipo == 'ENTRADA' and not marcas_agrupadas[clave]['entrada']:
-            marcas_agrupadas[clave]['entrada'] = m.hora
-        elif m.tipo == 'SALIDA' and not marcas_agrupadas[clave]['salida']:
-            marcas_agrupadas[clave]['salida'] = m.hora
-
-    lista_final = []
-    horas_totales = 0.0
-
-    for (pasante, fecha), datos in marcas_agrupadas.items():
-        horas_dia = 0.0
-        if datos['entrada'] and datos['salida']:
-            dt_entrada = datetime.combine(fecha, datos['entrada'])
-            dt_salida = datetime.combine(fecha, datos['salida'])
-            horas_dia = (dt_salida - dt_entrada).total_seconds() / 3600.0
-            horas_totales += horas_dia
-            
-        lista_final.append({
-            'pasante': pasante,
-            'fecha': fecha,
-            'entrada': datos['entrada'],
-            'salida': datos['salida'],
-            'horas_dia': round(horas_dia, 2)
+        for fecha_dia, lista_marcas in marcas_por_dia_p.items():
+            entrada = None
+            for m in lista_marcas:
+                if m.tipo == 'ENTRADA':
+                    entrada = m.hora
+                elif m.tipo == 'SALIDA' and entrada is not None:
+                    dt_entrada = datetime.combine(date.today(), entrada)
+                    dt_salida = datetime.combine(date.today(), m.hora)
+                    tot_calc = (dt_salida - dt_entrada).total_seconds() / 3600.0
+                    horas_totales_p += tot_calc
+                    horas_area += tot_calc
+                    entrada = None
+                    
+        lista_con_calculos.append({
+            'objeto': p,
+            'horas_hechas': round(horas_totales_p, 1)
         })
 
-    lista_final.sort(key=lambda x: x['fecha'], reverse=True)
+    fechas_unicas = queryset_marcas.order_by('-fecha').values_list('fecha', flat=True).distinct()
+    paginator = Paginator(fechas_unicas, 1)  
+    pagina_actual = paginator.get_page(request.GET.get('page'))
+
+    reporte_final = []
+    if pagina_actual.object_list:
+        fecha_del_dia = pagina_actual.object_list[0]
+        marcas_del_dia = queryset_marcas.filter(fecha=fecha_del_dia).order_by('pasante__nombre_completo', 'hora')
+        
+        marcas_agrupadas = {}
+        for m in marcas_del_dia:
+            if m.pasante not in marcas_agrupadas:
+                marcas_agrupadas[m.pasante] = {'entrada': None, 'salida': None}
+            if m.tipo == 'ENTRADA' and not marcas_agrupadas[m.pasante]['entrada']:
+                marcas_agrupadas[m.pasante]['entrada'] = m.hora
+            elif m.tipo == 'SALIDA':
+                marcas_agrupadas[m.pasante]['salida'] = m.hora
+
+        for pasante, datos in marcas_agrupadas.items():
+            horas_dia = 0.0
+            if datos['entrada'] and datos['salida']:
+                dt_entrada = datetime.combine(fecha_del_dia, datos['entrada'])
+                dt_salida = datetime.combine(fecha_del_dia, datos['salida'])
+                horas_dia = (dt_salida - dt_entrada).total_seconds() / 3600.0
+                
+            reporte_final.append({
+                'pasante': pasante,
+                'fecha': fecha_del_dia,
+                'entrada': datos['entrada'],
+                'salida': datos['salida'],
+                'horas_dia': round(horas_dia, 2)
+            })
 
     context = {
-        'asistencias_agrupadas': lista_final, 
-        'mi_unidad': mi_unidad,
-        'horas_totales': round(horas_totales, 1)
+        'reportes_asistencia': reporte_final,      
+        'pagina_actual': pagina_actual,            
+        'horas_area': round(horas_area, 1),        
+        'pasantes_calculados': lista_con_calculos, 
+        'mi_unidad': mi_unidad
     }
     return render(request, 'listado_detallado_de_asistencia_marca_actualizada/code.html', context)
 
@@ -209,31 +247,25 @@ def generacion_reportes(request):
     else:
         pasantes_lista = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
         
-    # Obtener filtros del formulario (GET)
     filtro_pasante = request.GET.get('pasante_id', '')
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
     
-    # Base Queryset filtrado por jerarquía básica
     if supervisor_actual.is_superuser:
         queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
     else:
         queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_lista).select_related('pasante')
         
-    # Aplicar Filtro de Pasante Específico
     if filtro_pasante and filtro_pasante != 'todos':
         queryset_marcas = queryset_marcas.filter(pasante_id=filtro_pasante)
         
-    # Aplicar Filtros de Fechas Dinámicas (Calendario)
     if fecha_desde:
         queryset_marcas = queryset_marcas.filter(fecha__gte=fecha_desde)
     if fecha_hasta:
         queryset_marcas = queryset_marcas.filter(fecha__lte=fecha_hasta)
         
-    # Ordenar cronológicamente
-    queryset_marcas = queryset_marcas.order_by('-fecha', 'hora')
+    queryset_marcas = queryset_marcas.order_by('fecha', 'hora')
     
-    # Procesar agrupaciones unificadas en líneas de Ingreso / Salida
     marcas_agrupadas = {}
     for m in queryset_marcas:
         clave = (m.pasante, m.fecha)
@@ -242,7 +274,7 @@ def generacion_reportes(request):
             
         if m.tipo == 'ENTRADA' and not marcas_agrupadas[clave]['entrada']:
             marcas_agrupadas[clave]['entrada'] = m.hora
-        elif m.tipo == 'SALIDA' and not marcas_agrupadas[clave]['salida']:
+        elif m.tipo == 'SALIDA':
             marcas_agrupadas[clave]['salida'] = m.hora
 
     reporte_final = []
@@ -254,6 +286,7 @@ def generacion_reportes(request):
             dt_entrada = datetime.combine(fecha, datos['entrada'])
             dt_salida = datetime.combine(fecha, datos['salida'])
             horas_dia = (dt_salida - dt_entrada).total_seconds() / 3600.0
+            # CORREGIDO: Cambiado 'hours_dia' por 'horas_dia' para resolver el NameError
             total_horas_periodo += horas_dia
             
         reporte_final.append({
@@ -264,7 +297,6 @@ def generacion_reportes(request):
             'horas_dia': round(horas_dia, 2)
         })
 
-    # Reordenar cronológicamente descendente para mostrar lo último arriba
     reporte_final.sort(key=lambda x: x['fecha'], reverse=True)
         
     context = {
@@ -272,7 +304,6 @@ def generacion_reportes(request):
         'reportes_asistencia': reporte_final,
         'total_horas_periodo': round(total_horas_periodo, 1),
         'mi_unidad': mi_unidad,
-        # Devolver filtros aplicados para mantenerlos seleccionados en los campos
         'filtro_pasante': filtro_pasante,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
@@ -292,7 +323,7 @@ def lista_pasantes(request):
         f_fin = request.POST.get('fecha_fin')
         horas_req = request.POST.get('horas_requeridas', 240)
         
-        if ci and name and f_inicio and f_fin:
+        if ci and nombre and f_inicio and f_fin:
             Pasante.objects.create(
                 ci=ci, nombre_completo=nombre, area=mi_unidad,
                 supervisor=supervisor_actual, fecha_inicio=f_inicio,

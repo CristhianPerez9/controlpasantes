@@ -10,6 +10,9 @@ class Pasante(models.Model):
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_fin = models.DateField(null=True, blank=True)
     horas_requeridas = models.IntegerField(default=240)
+    
+    # NUEVO CAMPO AÑADIDO:
+    nota_final = models.IntegerField(null=True, blank=True, verbose_name="Nota Final")
 
     def __str__(self):
         return self.nombre_completo
