@@ -65,7 +65,10 @@
             <h1 class="text-sm font-bold text-[#cc0000] tracking-tight">COMTECO <span class="text-slate-500 font-medium">Pasantes</span></h1>
         </div>
         <div class="flex items-center gap-4 text-slate-500 text-sm">
-            <div class="flex items-center gap-2"><i class="fa-regular fa-user-circle text-xl"></i><span class="text-xs font-semibold">{{ user.username }}</span></div>
+            <div class="flex items-center gap-2">
+                <i class="fa-regular fa-user-circle text-xl"></i>
+                <span class="text-xs font-semibold">{{ supervisor_nombre_completo }}</span>
+            </div>
         </div>
     </header>
 
@@ -263,7 +266,7 @@
                                 <div class="text-center">
                                     <div class="border-b border-slate-400 mb-2 w-3/4 mx-auto"></div>
                                     <p class="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Firma Supervisor</p>
-                                    <p class="text-[8px] text-slate-400 mt-1">{{ user.username|upper }}</p>
+                                    <p class="text-[8px] text-slate-400 mt-1">{{ supervisor_nombre_completo|upper }}</p>
                                 </div>
                                 <div class="text-center">
                                     <div class="border-b border-slate-400 mb-2 w-3/4 mx-auto"></div>

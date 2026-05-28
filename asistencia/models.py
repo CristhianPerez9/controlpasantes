@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+
+## añadir la variable estado de pasante (true , false)
 class Pasante(models.Model):
     ci = models.CharField(max_length=20, unique=True)
     nombre_completo = models.CharField(max_length=150)
@@ -10,6 +12,7 @@ class Pasante(models.Model):
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_fin = models.DateField(null=True, blank=True)
     horas_requeridas = models.IntegerField(default=240)
+    estado = models.BooleanField(default=True, null=True, blank=True)
     
     # NUEVO CAMPO AÑADIDO:
     nota_final = models.IntegerField(null=True, blank=True, verbose_name="Nota Final")

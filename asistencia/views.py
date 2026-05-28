@@ -12,6 +12,18 @@ from .models import Pasante, RegistroAsistencia, TurnoPasante
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator  
 
+# --- FUNCIÓN AUXILIAR INTERNA (NO CREA ARCHIVOS) ---
+def obtener_nombre_completo_ldap(user):
+    """
+    Toma el nombre y apellido mapeados por el LDAP de COMTECO.
+    Si vienen vacíos, usa el username en mayúsculas como respaldo seguro.
+    """
+    nombre_completo = f"{user.first_name} {user.last_name}".strip()
+    if not nombre_completo:
+        nombre_completo = user.username.upper()
+    return nombre_completo
+
+
 # --- 1. CARGADOR AUXILIAR ---
 @login_required
 def importar_datos_csv(request):
@@ -133,10 +145,11 @@ def panel_supervisor(request):
         entrada = None
         for m in marcas_asc:
             if m.tipo == 'ENTRADA':
-                entrada = m.hora
+                entrada = m.hora.replace(second=0, microsecond=0)
             elif m.tipo == 'SALIDA' and entrada is not None:
+                salida_limpia = m.hora.replace(second=0, microsecond=0)
                 dt_entrada = datetime.combine(date.today(), entrada)
-                dt_salida = datetime.combine(date.today(), m.hora)
+                dt_salida = datetime.combine(date.today(), salida_limpia)
                 horas_hoy += (dt_salida - dt_entrada).total_seconds() / 3600.0
                 entrada = None
 
@@ -145,7 +158,8 @@ def panel_supervisor(request):
         'asistencias': asistencias, 
         'mi_unidad': mi_unidad,
         'horas_hoy': round(horas_hoy, 1),
-        'alertas_tardanza': alertas_tardanza
+        'alertas_tardanza': alertas_tardanza,
+        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'panel_del_supervisor_marca_actualizada/code.html', context)
 
@@ -179,10 +193,11 @@ def listado_detallado(request):
             entrada = None
             for m in lista_marcas:
                 if m.tipo == 'ENTRADA':
-                    entrada = m.hora
+                    entrada = m.hora.replace(second=0, microsecond=0)
                 elif m.tipo == 'SALIDA' and entrada is not None:
+                    salida_limpia = m.hora.replace(second=0, microsecond=0)
                     dt_entrada = datetime.combine(date.today(), entrada)
-                    dt_salida = datetime.combine(date.today(), m.hora)
+                    dt_salida = datetime.combine(date.today(), salida_limpia)
                     tot_calc = (dt_salida - dt_entrada).total_seconds() / 3600.0
                     horas_totales_p += tot_calc
                     horas_area += tot_calc
@@ -207,9 +222,9 @@ def listado_detallado(request):
             if m.pasante not in marcas_agrupadas:
                 marcas_agrupadas[m.pasante] = {'entrada': None, 'salida': None}
             if m.tipo == 'ENTRADA' and not marcas_agrupadas[m.pasante]['entrada']:
-                marcas_agrupadas[m.pasante]['entrada'] = m.hora
+                marcas_agrupadas[m.pasante]['entrada'] = m.hora.replace(second=0, microsecond=0)
             elif m.tipo == 'SALIDA':
-                marcas_agrupadas[m.pasante]['salida'] = m.hora
+                marcas_agrupadas[m.pasante]['salida'] = m.hora.replace(second=0, microsecond=0)
 
         for pasante, datos in marcas_agrupadas.items():
             horas_dia = 0.0
@@ -231,12 +246,13 @@ def listado_detallado(request):
         'pagina_actual': pagina_actual,            
         'horas_area': round(horas_area, 1),        
         'pasantes_calculados': lista_con_calculos, 
-        'mi_unidad': mi_unidad
+        'mi_unidad': mi_unidad,
+        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'listado_detallado_de_asistencia_marca_actualizada/code.html', context)
 
 
-# --- NUEVA LOGICA DE REPORTES PERSONALIZADOS Y POR PASANTE ---
+# --- 3. LOGICA DE REPORTES PERSONALIZADOS (CORREGIDA) ---
 @login_required
 def generacion_reportes(request):
     supervisor_actual = request.user
@@ -244,20 +260,21 @@ def generacion_reportes(request):
     
     if supervisor_actual.is_superuser:
         pasantes_lista = Pasante.objects.all().order_by('nombre_completo')
+        queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
     else:
         pasantes_lista = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
+        queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_lista).select_related('pasante')
         
-    filtro_pasante = request.GET.get('pasante_id', '')
+    # CORRECCIÓN: Usar 'pasante_id' para que coincida con el nombre del <select> en HTML
+    filtro_pasante = request.GET.get('pasante_id')
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
     
-    if supervisor_actual.is_superuser:
-        queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
-    else:
-        queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_lista).select_related('pasante')
-        
+    pasante_seleccionado = None
+    
     if filtro_pasante and filtro_pasante != 'todos':
         queryset_marcas = queryset_marcas.filter(pasante_id=filtro_pasante)
+        pasante_seleccionado = pasantes_lista.filter(id=filtro_pasante).first()
         
     if fecha_desde:
         queryset_marcas = queryset_marcas.filter(fecha__gte=fecha_desde)
@@ -273,9 +290,9 @@ def generacion_reportes(request):
             marcas_agrupadas[clave] = {'entrada': None, 'salida': None}
             
         if m.tipo == 'ENTRADA' and not marcas_agrupadas[clave]['entrada']:
-            marcas_agrupadas[clave]['entrada'] = m.hora
+            marcas_agrupadas[clave]['entrada'] = m.hora.replace(second=0, microsecond=0)
         elif m.tipo == 'SALIDA':
-            marcas_agrupadas[clave]['salida'] = m.hora
+            marcas_agrupadas[clave]['salida'] = m.hora.replace(second=0, microsecond=0)
 
     reporte_final = []
     total_horas_periodo = 0.0
@@ -286,7 +303,6 @@ def generacion_reportes(request):
             dt_entrada = datetime.combine(fecha, datos['entrada'])
             dt_salida = datetime.combine(fecha, datos['salida'])
             horas_dia = (dt_salida - dt_entrada).total_seconds() / 3600.0
-            # CORREGIDO: Cambiado 'hours_dia' por 'horas_dia' para resolver el NameError
             total_horas_periodo += horas_dia
             
         reporte_final.append({
@@ -304,9 +320,13 @@ def generacion_reportes(request):
         'reportes_asistencia': reporte_final,
         'total_horas_periodo': round(total_horas_periodo, 1),
         'mi_unidad': mi_unidad,
+        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
+        
+        # CORRECCIÓN: Mandar variables al HTML para que no se borren los filtros al recargar
         'filtro_pasante': filtro_pasante,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
+        'pasante_seleccionado': pasante_seleccionado
     }
     return render(request, 'generaci_n_de_reportes_marca_actualizada/code.html', context)
 
@@ -352,10 +372,11 @@ def lista_pasantes(request):
             entrada = None
             for m in lista_marcas:
                 if m.tipo == 'ENTRADA':
-                    entrada = m.hora
+                    entrada = m.hora.replace(second=0, microsecond=0)
                 elif m.tipo == 'SALIDA' and entrada is not None:
+                    salida_limpia = m.hora.replace(second=0, microsecond=0)
                     dt_entrada = datetime.combine(date.today(), entrada)
-                    dt_salida = datetime.combine(date.today(), m.hora)
+                    dt_salida = datetime.combine(date.today(), salida_limpia)
                     horas_totales_hechas += (dt_salida - dt_entrada).total_seconds() / 3600.0
                     entrada = None
 
@@ -368,7 +389,11 @@ def lista_pasantes(request):
             'horas_restantes': horas_restantes,
         })
         
-    context = {'pasantes_calculados': lista_con_calculos, 'mi_unidad': mi_unidad}
+    context = {
+        'pasantes_calculados': lista_con_calculos, 
+        'mi_unidad': mi_unidad,
+        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
+    }
     return render(request, 'lista_pasantes_marca_actualizada/code.html', context)
 
 @login_required
@@ -402,5 +427,10 @@ def gestionar_turnos(request):
             return redirect('gestionar_turnos')
 
     turnos = TurnoPasante.objects.filter(pasante__in=pasantes).select_related('pasante').order_by('pasante', 'dia', 'turno')
-    context = {'pasantes': pasantes, 'turnos': turnos, 'mi_unidad': mi_unidad}
+    context = {
+        'pasantes': pasantes, 
+        'turnos': turnos, 
+        'mi_unidad': mi_unidad,
+        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
+    }
     return render(request, 'gestionar_turnos_marca_actualizada/code.html', context)
