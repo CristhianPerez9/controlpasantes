@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: asistencia_django
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_DB: asistencia_db
+      POSTGRES_USER: pasantes
+      POSTGRES_PASSWORD: C0mT3C02026
+      POSTGRES_HOST: 192.9.200.162
+      POSTGRES_PORT: 5432
+      DJANGO_ALLOWED_HOSTS: "*"
+      
+      # Variables para que el entrypoint cree el superusuario automáticamente
+      DJANGO_SUPERUSER_USERNAME: cperezb
+      DJANGO_SUPERUSER_EMAIL: cperezb@comteco.com.bo
+      DJANGO_SUPERUSER_PASSWORD: admin123
+    restart: unless-stopped

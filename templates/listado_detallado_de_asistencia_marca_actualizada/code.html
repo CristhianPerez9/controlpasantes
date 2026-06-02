@@ -4,165 +4,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control Asistencia - COMTECO</title>
+    <title>Control de Asistencia - COMTECO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     <style>body { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="bg-[#f4f5f6] min-h-screen flex flex-col">
-    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 shrink-0">
-        <div class="flex items-center gap-3">
-            <img src="{% static 'logo.png' %}" alt="Logo" class="h-7 w-7 object-contain">
-            <h1 class="text-sm font-bold text-[#cc0000] tracking-tight">COMTECO <span class="text-slate-500 font-medium">Pasantes</span></h1>
+    
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 shrink-0">
+        <div class="flex items-center gap-2 md:gap-3">
+            <img src="{% static 'logo.png' %}" alt="Logo" class="h-6 w-6 md:h-7 md:w-7 object-contain">
+            <h1 class="text-xs md:text-sm font-bold text-[#cc0000] tracking-tight">COMTECO <span class="text-slate-500 font-medium">Pasantes</span></h1>
         </div>
         <div class="flex items-center gap-4 text-slate-500 text-sm">
-            <div class="flex items-center gap-2"><i class="fa-regular fa-user-circle text-xl"></i><span class="text-xs font-semibold">{{ supervisor_nombre_completo }}</span></div>
+            <div class="flex items-center gap-2">
+                <i class="fa-regular fa-user-circle text-lg md:text-xl"></i>
+                <span class="text-[10px] md:text-xs font-semibold truncate max-w-[120px] md:max-w-none">{{ supervisor_nombre_completo }}</span>
+            </div>
         </div>
     </header>
 
-    <div class="flex-1 flex overflow-hidden">
-        <aside class="w-64 bg-white border-r border-slate-200 p-4 flex flex-col justify-between shrink-0">
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <aside class="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-4 flex flex-col justify-between shrink-0 overflow-y-auto md:max-h-full max-h-[40vh]">
             <div class="flex flex-col gap-4">
-                <div class="px-2 pt-2"><h2 class="text-xs font-black text-[#cc0000] uppercase tracking-wider">Administración</h2></div>
-                <nav class="flex flex-col gap-1 text-xs font-semibold text-slate-600 mt-2">
-                    <a href="{% url 'panel_supervisor' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors"><i class="fa-solid fa-table-cells-large text-sm w-4"></i> Panel Control</a>
-                    <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors"><i class="fa-solid fa-users text-sm w-4"></i> Lista Pasantes</a>
-                    <a href="{% url 'listado_detallado' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#cc0000] text-white shadow-md transition-colors"><i class="fa-solid fa-clock-rotate-left text-sm w-4"></i> Control Asistencia</a>
-                    <a href="{% url 'generacion_reportes' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors"><i class="fa-solid fa-file-invoice text-sm w-4"></i> Generar Reportes</a>
+                <div class="px-2 pt-2 hidden md:block">
+                    <h2 class="text-xs font-black text-[#cc0000] uppercase tracking-wider">Administración</h2>
+                    <p class="text-[10px] text-slate-400">Control de Pasantías</p>
+                </div>
+                <nav class="flex md:flex-col flex-row flex-wrap gap-2 text-xs font-semibold text-slate-600 md:mt-2 justify-center md:justify-start">
+                    <a href="{% url 'panel_supervisor' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-table-cells-large text-sm w-4"></i> Panel Control</a>
+                    <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-users text-sm w-4"></i> Lista Pasantes</a>
+                    <a href="{% url 'listado_detallado' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl bg-[#cc0000] text-white shadow-md transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-clock-rotate-left text-sm w-4"></i> Control Asistencia</a>
+                    <a href="{% url 'generacion_reportes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-file-invoice text-sm w-4"></i> Generar Reportes</a>
                 </nav>
             </div>
-            <a href="{% url 'registrar_asistencia' %}" class="bg-[#cc0000] hover:bg-red-800 text-white text-xs font-bold py-3 px-4 rounded-xl text-center shadow-md transition-colors"><i class="fa-solid fa-right-to-bracket mr-1"></i> Registrar Entrada</a>
+            <a href="{% url 'registrar_asistencia' %}" class="mt-4 md:mt-0 bg-[#cc0000] hover:bg-red-800 text-white text-xs font-bold py-3 px-4 rounded-xl text-center shadow-md transition-colors block"><i class="fa-solid fa-right-to-bracket mr-1"></i> Registrar Entrada</a>
         </aside>
 
-        <main class="flex-1 p-10 overflow-y-auto">
+        <main class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-6 md:gap-8 bg-[#f4f5f6]">
             
-            <div class="mb-8">
-                <h2 class="text-3xl font-black text-slate-800 tracking-tight">Control de Asistencia Detallado</h2>
-                <p class="text-base text-slate-500 mt-1">Historial consolidado de marcas y resumen de horas acumuladas.</p>
-            </div>
-
-            <div class="flex flex-wrap gap-6 mb-10">
-                <div class="min-w-[220px] flex-1 max-w-[300px] bg-gradient-to-br from-[#cc0000] to-red-800 rounded-3xl p-6 shadow-lg shadow-red-900/20 flex flex-col justify-center relative overflow-hidden">
-                    <i class="fa-solid fa-briefcase absolute -right-4 -bottom-4 text-8xl text-white opacity-10"></i>
-                    <p class="text-xs font-bold text-rose-200 uppercase tracking-widest mb-1 z-10">Total Horas Área</p>
-                    <p class="text-4xl font-black text-white z-10">{{ horas_area }} <span class="text-base font-semibold text-rose-200">hrs</span></p>
-                </div>
-
-                {% for item in pasantes_calculados %}
-                <div class="min-w-[180px] flex-1 max-w-[240px] bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col items-center justify-center text-center transition-all hover:border-emerald-300 hover:shadow-md">
-                    <div class="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 mb-3 border border-slate-100">
-                        <i class="fa-solid fa-user text-lg"></i>
-                    </div>
-                    <span class="text-xs font-bold text-slate-800 leading-snug mb-4 min-h-[34px] flex items-center justify-center">{{ item.objeto.nombre_completo }}</span>
-                    <span class="bg-emerald-50 text-emerald-700 font-black text-base px-4 py-2 rounded-xl border border-emerald-100 w-full shadow-inner">
-                        {{ item.horas_hechas }} <span class="text-[10px] font-bold uppercase tracking-wider">hrs</span>
-                    </span>
-                </div>
-                {% empty %}
-                <div class="flex-1 bg-slate-50 border border-slate-200 border-dashed rounded-3xl p-6 flex items-center justify-center text-slate-400 text-sm font-medium">
-                    No hay pasantes registrados en esta área.
-                </div>
-                {% endfor %}
-            </div>
-
-            <div class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden flex flex-col">
-                <div class="px-8 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                    <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-list-check text-[#cc0000]"></i> Registros Diarios
-                    </h3>
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-800">Control Diario de Asistencia</h2>
+                    <p class="text-xs md:text-sm text-slate-500 mt-1">Supervisión detallada de ingresos y salidas por fecha.</p>
                 </div>
                 
-                <table class="w-full text-left text-sm border-collapse">
-                    <thead>
-                        <tr class="bg-slate-50 border-b border-slate-200 font-bold text-slate-400 uppercase text-[10px] tracking-wider">
-                            <th class="py-5 px-8">Pasante</th>
-                            <th class="py-5 px-6">Fecha</th>
-                            <th class="py-5 px-6 text-center">Hora Ingreso</th>
-                            <th class="py-5 px-6 text-center">Hora Salida</th>
-                            <th class="py-5 px-8 text-center bg-slate-50 border-l border-slate-100">Total Horas</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
-                        {% for r in reportes_asistencia %}
-                        <tr class="hover:bg-slate-50/80 transition-colors">
-                            <td class="py-4 px-8 font-bold text-slate-800 flex items-center gap-3">
-                                <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]"></div>
-                                {{ r.pasante.nombre_completo }}
-                            </td>
-                            <td class="py-4 px-6 text-slate-500">{{ r.fecha|date:"d/m/Y" }}</td>
-                            
-                            <td class="py-4 px-6 text-center">
-                                {% if r.entrada %}
-                                    <span class="inline-flex items-center gap-1.5 text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
-                                        <i class="fa-solid fa-arrow-right-to-bracket opacity-70"></i> {{ r.entrada|time:"H:i:s" }}
-                                    </span>
-                                {% else %}
-                                    <span class="text-slate-300 font-bold">-</span>
-                                {% endif %}
-                            </td>
-                            
-                            <td class="py-4 px-6 text-center">
-                                {% if r.salida %}
-                                    <span class="inline-flex items-center gap-1.5 text-[#cc0000] bg-red-50 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
-                                        <i class="fa-solid fa-arrow-right-from-bracket opacity-70"></i> {{ r.salida|time:"H:i:s" }}
-                                    </span>
-                                {% else %}
-                                    <span class="text-slate-300 font-bold">-</span>
-                                {% endif %}
-                            </td>
-                            
-                            <td class="py-4 px-8 text-center border-l border-slate-100">
-                                {% if r.horas_dia > 0 %}
-                                    {% if r.horas_dia < 4.0 %}
-                                        <span class="font-black text-[#cc0000] text-base">{{ r.horas_dia }} <span class="text-[10px] text-red-300 uppercase tracking-widest">hrs</span></span>
+                <div class="bg-white px-3 md:px-4 py-2 md:py-2.5 rounded-full shadow-sm border border-slate-200 flex items-center gap-4 md:gap-6 w-full sm:w-auto justify-between sm:justify-start">
+                    {% if pagina_actual.has_next %}
+                        <a href="?page={{ pagina_actual.next_page_number }}" class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-200 hover:text-slate-800 transition-colors cursor-pointer border border-slate-200">
+                            <i class="fa-solid fa-chevron-left text-xs md:text-sm"></i>
+                        </a>
+                    {% else %}
+                        <div class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-slate-50/50 text-slate-300 border border-slate-100 cursor-not-allowed">
+                            <i class="fa-solid fa-chevron-left text-xs md:text-sm"></i>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="flex flex-col items-center">
+                        <span class="text-[9px] md:text-[10px] font-bold text-[#cc0000] uppercase tracking-widest">Fecha Visualizada</span>
+                        <span class="text-sm md:text-base font-black text-slate-800 -mt-0.5">
+                            {% if pagina_actual.object_list %}
+                                {{ pagina_actual.object_list.0|date:"d M Y" }}
+                            {% else %}
+                                Sin Registros
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% if pagina_actual.has_previous %}
+                        <a href="?page={{ pagina_actual.previous_page_number }}" class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-200 hover:text-slate-800 transition-colors cursor-pointer border border-slate-200">
+                            <i class="fa-solid fa-chevron-right text-xs md:text-sm"></i>
+                        </a>
+                    {% else %}
+                        <div class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-slate-50/50 text-slate-300 border border-slate-100 cursor-not-allowed">
+                            <i class="fa-solid fa-chevron-right text-xs md:text-sm"></i>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1">
+                <div class="bg-[#cc0000] px-4 md:px-5 py-3 text-white text-[10px] md:text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-list-check"></i> Desglose de Marcaciones
+                </div>
+                
+                <div class="overflow-x-auto w-full">
+                    <table class="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-200 text-[9px] md:text-[10px] tracking-wider">
+                                <th class="py-3 md:py-4 px-4 md:px-5">Pasante</th>
+                                <th class="py-3 md:py-4 px-4 md:px-5 text-center">Hora de Ingreso</th>
+                                <th class="py-3 md:py-4 px-4 md:px-5 text-center">Hora de Salida</th>
+                                <th class="py-3 md:py-4 px-4 md:px-5 text-center bg-slate-100/50">Cómputo del Día</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+                            {% for r in reportes_asistencia %}
+                            <tr class="hover:bg-slate-50/50 transition-colors">
+                                <td class="py-3 md:py-4 px-4 md:px-5">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-rose-50 text-[#cc0000] flex items-center justify-center text-xs font-bold">{{ r.pasante.nombre_completo|slice:"0:1" }}</div>
+                                        <span class="font-bold text-slate-800 text-xs md:text-sm">{{ r.pasante.nombre_completo }}</span>
+                                    </div>
+                                </td>
+                                <td class="py-3 md:py-4 px-4 md:px-5 text-center">
+                                    {% if r.entrada %}
+                                        <span class="inline-flex items-center gap-1.5 px-2 md:px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] md:text-xs font-bold"><i class="fa-solid fa-arrow-right-to-bracket"></i> {{ r.entrada|time:"H:i A" }}</span>
                                     {% else %}
-                                        <span class="font-black text-slate-800 text-base">{{ r.horas_dia }} <span class="text-[10px] text-slate-400 uppercase tracking-widest">hrs</span></span>
+                                        <span class="text-slate-300 font-bold text-xs">--:--</span>
                                     {% endif %}
-                                {% else %}
-                                    <span class="text-xs font-bold text-amber-500 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200">En curso</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="py-16 text-center text-slate-400 font-medium">No hay registros de asistencia para este día.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-
-                {% if pagina_actual.has_other_pages %}
-                <div class="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                    <p class="text-xs font-medium text-slate-500">
-                        Mostrando el <span class="font-bold text-slate-800">Día {{ pagina_actual.number }}</span> de un total de <span class="font-bold text-slate-800">{{ pagina_actual.paginator.num_pages }} días con registros</span>
-                    </p>
-                    <div class="flex items-center gap-2">
-                        {% if pagina_actual.has_previous %}
-                            <a href="?page={{ pagina_actual.previous_page_number }}" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-[#cc0000] hover:border-red-200 transition-colors shadow-sm">
-                                <i class="fa-solid fa-chevron-left mr-1"></i> Día Posterior
-                            </a>
-                        {% else %}
-                            <span class="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-300 cursor-not-allowed">
-                                <i class="fa-solid fa-chevron-left mr-1"></i> Día Posterior
-                            </span>
-                        {% endif %}
-
-                        {% if pagina_actual.has_next %}
-                            <a href="?page={{ pagina_actual.next_page_number }}" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-[#cc0000] hover:border-red-200 transition-colors shadow-sm">
-                                Día Anterior <i class="fa-solid fa-chevron-right ml-1"></i>
-                            </a>
-                        {% else %}
-                            <span class="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-300 cursor-not-allowed">
-                                Día Anterior <i class="fa-solid fa-chevron-right ml-1"></i>
-                            </span>
-                        {% endif %}
-                    </div>
+                                </td>
+                                <td class="py-3 md:py-4 px-4 md:px-5 text-center">
+                                    {% if r.salida %}
+                                        <span class="inline-flex items-center gap-1.5 px-2 md:px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] md:text-xs font-bold"><i class="fa-solid fa-arrow-right-from-bracket"></i> {{ r.salida|time:"H:i A" }}</span>
+                                    {% else %}
+                                        <span class="text-slate-300 font-bold text-xs">--:--</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 md:py-4 px-4 md:px-5 text-center bg-slate-50/30">
+                                    {% if r.horas_dia > 0 %}
+                                        <span class="font-black text-xs md:text-sm {% if r.horas_dia < 4 %}text-[#cc0000]{% else %}text-slate-800{% endif %}">{{ r.horas_dia }} hrs</span>
+                                    {% else %}
+                                        <span class="text-[9px] md:text-[10px] font-bold text-amber-500 uppercase tracking-wide border border-amber-200 bg-amber-50 px-2 py-0.5 rounded">Jornada Incompleta</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="py-12 md:py-16 text-center text-slate-400">
+                                    <i class="fa-solid fa-calendar-xmark text-3xl md:text-4xl mb-3 text-slate-200"></i>
+                                    <p class="text-xs md:text-sm font-semibold">No se encontraron marcaciones para esta fecha.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-                {% endif %}
-                
             </div>
-
+            
         </main>
     </div>
 </body>

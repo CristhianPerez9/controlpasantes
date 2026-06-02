@@ -5,12 +5,12 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-tu-clave-secreta-aqui'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-tu-clave-secreta-aqui')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -63,13 +63,13 @@ WSGI_APPLICATION = 'control_asistencia.wsgi.application'
 # https://docs.djangoproject.com/en/stable/ref/settings/#databases
 
 DATABASES = {
-   'default': {
+    'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'asistencia_db',
-        'USER': 'postgres',
-        'PASSWORD': 'admin123',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.environ.get('POSTGRES_DB', 'asistencia_db'),
+        'USER': os.environ.get('POSTGRES_USER', 'pasantes'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'C0mT3C02026'),
+        'HOST': os.environ.get('POSTGRES_HOST', '192.9.200.162'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
 
@@ -111,6 +111,9 @@ USE_TZ = False
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
+# CORRECCIÓN PARA DOCKER: Carpeta donde se recopilarán todos los estáticos
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configuración de Redirecciones de Autenticación
@@ -123,7 +126,6 @@ LOGIN_URL = 'login'
 # CONFIGURACIÓN DE AUTENTICACIÓN PERSONALIZADA CORREGIDA (LDAP / COMTECO)
 # ==============================================================================
 
-# Se apunta directamente a la clase 'AutenticacionLDAP' mapeada en appauth/auth_ldap.py
 AUTHENTICATION_BACKENDS = [
     'appauth.auth_ldap.AutenticacionLDAP',
     'django.contrib.auth.backends.ModelBackend',
