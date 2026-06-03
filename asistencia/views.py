@@ -4,6 +4,7 @@ import datetime
 from datetime import datetime, date
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
 from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
@@ -12,11 +13,11 @@ from .models import Pasante, RegistroAsistencia, TurnoPasante
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator  
 
-# --- FUNCIÓN AUXILIAR INTERNA (NO CREA ARCHIVOS) ---
+# --- FUNCIÓN AUXILIAR INTERNA ---
 def obtener_nombre_completo_ldap(user):
     """
     Toma el nombre y apellido mapeados por el LDAP de COMTECO.
-    Si vienen vacíos, usa el username en mayúsculas como respaldo seguro.
+    Si vienen vacíos, usa el username en mayúsculas como respaldo.
     """
     nombre_completo = f"{user.first_name} {user.last_name}".strip()
     if not nombre_completo:
@@ -252,7 +253,7 @@ def listado_detallado(request):
     return render(request, 'listado_detallado_de_asistencia_marca_actualizada/code.html', context)
 
 
-# --- 3. LOGICA DE REPORTES PERSONALIZADOS (CORREGIDA) ---
+# --- 3. LÓGICA DE REPORTES PERSONALIZADOS ---
 @login_required
 def generacion_reportes(request):
     supervisor_actual = request.user
@@ -265,7 +266,6 @@ def generacion_reportes(request):
         pasantes_lista = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
         queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_lista).select_related('pasante')
         
-    # CORRECCIÓN: Usar 'pasante_id' para que coincida con el nombre del <select> en HTML
     filtro_pasante = request.GET.get('pasante_id')
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
@@ -321,8 +321,6 @@ def generacion_reportes(request):
         'total_horas_periodo': round(total_horas_periodo, 1),
         'mi_unidad': mi_unidad,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
-        
-        # CORRECCIÓN: Mandar variables al HTML para que no se borren los filtros al recargar
         'filtro_pasante': filtro_pasante,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
@@ -344,12 +342,15 @@ def lista_pasantes(request):
         horas_req = request.POST.get('horas_requeridas', 240)
         
         if ci and nombre and f_inicio and f_fin:
-            Pasante.objects.create(
-                ci=ci, nombre_completo=nombre, area=mi_unidad,
-                supervisor=supervisor_actual, fecha_inicio=f_inicio,
-                fecha_fin=f_fin, horas_requeridas=horas_req
-            )
-            messages.success(request, f"¡Pasante {nombre} guardado exitosamente!")
+            if Pasante.objects.filter(ci=ci).exists():
+                messages.error(request, f"Error: Ya existe un pasante registrado con el CI {ci}.")
+            else:
+                Pasante.objects.create(
+                    ci=ci, nombre_completo=nombre, area=mi_unidad,
+                    supervisor=supervisor_actual, fecha_inicio=f_inicio,
+                    fecha_fin=f_fin, horas_requeridas=horas_req
+                )
+                messages.success(request, f"¡Pasante {nombre} guardado exitosamente!")
             return redirect('lista_pasantes')
 
     if supervisor_actual.is_superuser:
@@ -434,3 +435,9 @@ def gestionar_turnos(request):
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'gestionar_turnos_marca_actualizada/code.html', context)
+
+# --- NUEVA FUNCIÓN PARA CERRAR SESIÓN ---
+@login_required
+def cerrar_sesion(request):
+    logout(request)
+    return redirect('login')
