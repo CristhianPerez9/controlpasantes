@@ -16,14 +16,14 @@ urlpatterns = [
     path('logout/', views.cerrar_sesion, name='logout'),
 
     # --- RUTAS PRINCIPALES DEL SISTEMA COMTECO ---
-    path('', views.index_dashboard, name='index_dashboard'),
+    path('index/', views.index_dashboard, name='index_dashboard'),
     path('panel/', views.panel_supervisor, name='panel_supervisor'),
     path('pasantes/', views.lista_pasantes, name='lista_pasantes'),
     path('asistencia/control/', views.listado_detallado, name='listado_detallado'),
     path('reportes/', views.generacion_reportes, name='generacion_reportes'),
     
     # --- RUTAS DE OPERACIÓN ---
-    path('registrar/', views.registrar_asistencia, name='registrar_asistencia'),
+    path('', views.registrar_asistencia, name='registrar_asistencia'),
     path('turnos/', views.gestionar_turnos, name='gestionar_turnos'),
     path('importar-csv/', views.importar_datos_csv, name='importar_csv'),
 ]

@@ -11,6 +11,19 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-tu-clave-secre
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+# produccion
+DEBUG = False
+# SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', SECRET_KEY)
+# ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+CSRF_TRUSTED_ORIGINS = [
+    'https://pasantes.comteco.com.bo',
+    'https://www.pasantes.comteco.com.bo',
+]
+# desarrollo local
+# CSRF_TRUSTED_ORIGINS = [
+#    'http://localhost',
+#    'http://127.0.0.1', ]
 
 
 # Application definition
