@@ -9,7 +9,7 @@ deploy_production:
   
   script:
     - ssh-keyscan 192.168.203.65 >> ~/.ssh/known_hosts
-    - sshpass -p "$SSH_PASSWORD_WORKER" ssh -o StrictHostKeyChecking=no root@192.168.203.65 "cd /home/sistemas/html/pasantes && rm -R *"
+    - sshpass -p "$SSH_PASSWORD_WORKER" ssh -o StrictHostKeyChecking=no root@192.168.203.65 "cd /home/sistemas/html/pasantes && rm -Rf *"
     - sshpass -p "$SSH_PASSWORD_WORKER" scp -o StrictHostKeyChecking=no -r $CI_PROJECT_DIR/* root@192.168.203.65:/home/sistemas/html/pasantes/
     - sshpass -p "$SSH_PASSWORD_WORKER" ssh -o StrictHostKeyChecking=no root@192.168.203.65 "cd /home/sistemas/html/pasantes/ && docker build --no-cache -t odaza/asistencia_django ."
     - sshpass -p "$SSH_PASSWORD_WORKER" ssh -o StrictHostKeyChecking=no root@192.168.203.66 "cd /root/webapp_produccion/ && docker stack rm sistram && docker stack deploy -c pasantes.docker-compose.webapps.yml asistencia"
