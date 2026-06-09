@@ -121,19 +121,40 @@ USE_TZ = False
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/stable/howto/static-files/
 
+# STATIC_URL = '/static/'
+# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
+# # CORRECCIÓN PARA DOCKER: Carpeta donde se recopilarán todos los estáticos
+# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# # Configuración de Redirecciones de Autenticación
+# LOGIN_REDIRECT_URL = 'panel_supervisor'
+# LOGOUT_REDIRECT_URL = 'login'
+# LOGIN_URL = 'login'
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/6.0/howto/static-files/
+
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
-# CORRECCIÓN PARA DOCKER: Carpeta donde se recopilarán todos los estáticos
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# CORRECCIÓN IMPORTANTE: Verificar si el directorio existe
+static_dir = os.path.join(BASE_DIR, 'static')
+if os.path.exists(static_dir):
+    STATICFILES_DIRS = [static_dir]
+else:
+    STATICFILES_DIRS = []  # Lista vacía para evitar el warning
+    # Crear el directorio si estamos en desarrollo
+    if DEBUG:
+        os.makedirs(static_dir, exist_ok=True)
+        STATICFILES_DIRS = [static_dir]
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+STATIC_ROOT = os.environ.get('STATIC_ROOT', os.path.join(BASE_DIR, 'staticfiles'))
 
-# Configuración de Redirecciones de Autenticación
-LOGIN_REDIRECT_URL = 'panel_supervisor'
-LOGOUT_REDIRECT_URL = 'login'
-LOGIN_URL = 'login'
-
+# Asegurar que STATIC_ROOT existe
+os.makedirs(STATIC_ROOT, exist_ok=True)
 
 # ==============================================================================
 # CONFIGURACIÓN DE AUTENTICACIÓN PERSONALIZADA CORREGIDA (LDAP / COMTECO)
