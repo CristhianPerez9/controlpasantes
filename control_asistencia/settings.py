@@ -18,13 +18,14 @@ DEBUG = False
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
 CSRF_TRUSTED_ORIGINS = [
     'https://pasantes.comteco.com.bo',
-    'https://www.pasantes.comteco.com.bo',
-]
+    'https://www.pasantes.comteco.com.bo', ]
+
+
 # desarrollo local
 # CSRF_TRUSTED_ORIGINS = [
 #    'http://localhost',
-#    'http://127.0.0.1', ]
-
+#    'http://127.0.0.1',]
+#
 
 # Application definition
 
