@@ -10,13 +10,12 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-tu-clave-secre
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 # ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
-# desarrollo local
 # CSRF_TRUSTED_ORIGINS = [
 #    'http://localhost',
 #    'http://127.0.0.1',]
-#
 
-# produccion
+
+#**************************** produccion
 DEBUG = False
 # SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', SECRET_KEY)
 # ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
@@ -128,12 +127,12 @@ USE_TZ = False
 # # CORRECCIÓN PARA DOCKER: Carpeta donde se recopilarán todos los estáticos
 # STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# # Configuración de Redirecciones de Autenticación
-# LOGIN_REDIRECT_URL = 'panel_supervisor'
-# LOGOUT_REDIRECT_URL = 'login'
-# LOGIN_URL = 'login'
+# Configuración de Redirecciones de Autenticación
+LOGIN_REDIRECT_URL = 'panel_supervisor'
+LOGOUT_REDIRECT_URL = 'login'
+LOGIN_URL = 'login'
 
 
 # Static files (CSS, JavaScript, Images)
