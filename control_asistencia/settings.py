@@ -143,3 +143,6 @@ AUTHENTICATION_BACKENDS = [
     'appauth.auth_ldap.AutenticacionLDAP',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+# Le dice a Django que confíe en el encabezado del proxy que indica que la conexión original era HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
