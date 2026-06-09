@@ -18,6 +18,7 @@ python manage.py migrate --noinput
 echo "Recolectando archivos estáticos..."
 python manage.py collectstatic --noinput --clear --no-post-process
 
+
 # 4. Crear superusuario de forma segura (Automático)
 # echo "Creando/actualizando superusuario..."
 # python manage.py shell << EOF
