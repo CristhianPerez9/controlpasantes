@@ -118,12 +118,15 @@ def registrar_asistencia(request):
 def index_dashboard(request):
     return redirect('panel_supervisor')
 
+
+# q solo supervisores pueden ver la lista de pasantes
 @login_required
 def panel_supervisor(request):
     supervisor_actual = request.user
     mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
-    
+    #supervisor este activo
     if supervisor_actual.is_superuser:
+        # buscar los pasantes propio,o asignados al supervisor
         pasantes = Pasante.objects.all()
         asistencias = RegistroAsistencia.objects.filter(fecha=date.today()).select_related('pasante').order_by('-hora')
     else:
