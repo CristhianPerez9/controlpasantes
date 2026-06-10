@@ -354,7 +354,7 @@ def generacion_reportes(request):
             dt_entrada = datetime.combine(fecha, datos['entrada'])
             dt_salida = datetime.combine(fecha, datos['salida'])
             horas_dia = (dt_salida - dt_entrada).total_seconds() / 3600.0
-            total_horas_periodo += horas_dia
+            total_horas_periodo += horas_dia # Suma acumulada para el total del periodo filtrado
             
         reporte_final.append({
             'pasante': pasante,
