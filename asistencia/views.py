@@ -97,49 +97,68 @@ def importar_datos_csv(request):
 def registrar_asistencia(request):
     if request.method == 'POST':
         ci_digitado = request.POST.get('ci_value')
-        tipo_marca = request.POST.get('tipo_marca')
+        
         if not ci_digitado:
             messages.error(request, "Por favor, introduzca su Carnet de Identidad.")
             return redirect('registrar_asistencia')
+            
         try:
             pasante = Pasante.objects.get(ci=ci_digitado)
+            fecha_hoy = date.today()
             
-            # --- VALIDACIÓN LOGICA DE HORAS EXTRA (16:15) ---
+            # 1. BUSCAMOS SI YA EXISTEN MARCAS HOY PARA ESTE PASANTE
+            marca_entrada = RegistroAsistencia.objects.filter(pasante=pasante, fecha=fecha_hoy, tipo='ENTRADA').first()
+            marca_salida = RegistroAsistencia.objects.filter(pasante=pasante, fecha=fecha_hoy, tipo='SALIDA').first()
+            
             estado_registro = 'APROBADO'
-            ahora_hora = datetime.now().time()
-            limite_salida = datetime.strptime('16:15', '%H:%M').time()
             
-            if tipo_marca == 'SALIDA' and ahora_hora > limite_salida:
-                estado_registro = 'PENDIENTE'
-
-            nueva_marca = RegistroAsistencia.objects.create(pasante=pasante, tipo=tipo_marca, estado=estado_registro)
-            
-            # --- ENVÍO DE CORREO AUTOMÁTICO AL SUPERVISOR SI QUEDÓ PENDIENTE ---
-            if estado_registro == 'PENDIENTE':
-                correo_supervisor = pasante.supervisor.email
-                if not correo_supervisor: # Respaldo si LDAP no mapeó el correo
-                    correo_supervisor = f"{pasante.supervisor.username}@comteco.com.bo"
+            # 2. LÓGICA INTELIGENTE ANTI-DUPLICADOS
+            if not marca_entrada:
+                # Si no tiene entrada, registramos la ENTRADA
+                RegistroAsistencia.objects.create(pasante=pasante, tipo='ENTRADA', estado=estado_registro)
+                messages.success(request, f"¡Marca de ENTRADA registrada con éxito para {pasante.nombre_completo}!")
                 
-                asunto = f"⚠️ Solicitud de Horas Extra Pendiente - {pasante.nombre_completo}"
-                cuerpo = f"Estimado(a) {obtener_nombre_completo_ldap(pasante.supervisor)},\n\n" \
-                         f"El pasante {pasante.nombre_completo} registró una SALIDA fuera del horario regular a las {nueva_marca.hora.strftime('%H:%M')}.\n" \
-                         f"Este registro ha quedado en estado PENDIENTE de aprobación.\n\n" \
-                         f"Por favor ingrese al Panel de Control del sistema para aprobar o rechazar esta marcación.\n\n" \
-                         f"Sistema de Control de Pasantes - TI COMTECO."
+            elif marca_entrada and not marca_salida:
+                # Si ya tiene entrada pero NO salida, registramos la SALIDA
                 
-                # fail_silently=True evita que el sistema se caiga si las credenciales SMTP locales no están listas
-                send_mail(asunto, cuerpo, 'asistencia.pasantes@comteco.com.bo', [correo_supervisor], fail_silently=True)
+                # --- Validación Lógica de Horas Extra (16:15) ---
+                ahora_hora = datetime.now().time()
+                limite_salida = datetime.strptime('16:15', '%H:%M').time() 
                 
-                messages.warning(request, f"Marcación registrada. Al exceder las 16:15 se guardó como pre-registro pendiente de aprobación por su supervisor ({pasante.supervisor.username}).")
+                if ahora_hora > limite_salida:
+                    estado_registro = 'PENDIENTE'
+                    
+                nueva_marca = RegistroAsistencia.objects.create(pasante=pasante, tipo='SALIDA', estado=estado_registro)
+                
+                # --- Envío de correo si quedó pendiente ---
+                if estado_registro == 'PENDIENTE':
+                    correo_supervisor = pasante.supervisor.email
+                    if not correo_supervisor:
+                        correo_supervisor = f"{pasante.supervisor.username}@comteco.com.bo"
+                    
+                    asunto = f"⚠️ Solicitud de Horas Extra Pendiente - {pasante.nombre_completo}"
+                    cuerpo = f"Estimado(a) {obtener_nombre_completo_ldap(pasante.supervisor)},\n\n" \
+                             f"El pasante {pasante.nombre_completo} registró una SALIDA fuera del horario regular a las {nueva_marca.hora.strftime('%H:%M')}.\n" \
+                             f"Este registro ha quedado en estado PENDIENTE de aprobación.\n\n" \
+                             f"Por favor ingrese al Panel de Control del sistema para aprobar o rechazar esta marcación.\n\n" \
+                             f"Sistema de Control de Pasantes - TI COMTECO."
+                    
+                    send_mail(asunto, cuerpo, 'asistencia.pasantes@comteco.com.bo', [correo_supervisor], fail_silently=True)
+                    messages.warning(request, f"Salida registrada. Al exceder las 16:15 se guardó como pre-registro pendiente de aprobación por su supervisor.")
+                else:
+                    messages.success(request, f"¡Marca de SALIDA registrada con éxito para {pasante.nombre_completo}!")
+                    
             else:
-                messages.success(request, f"¡Marca de {tipo_marca.lower()} registrada con éxito para {pasante.nombre_completo}!")
+                # Si ya tiene Entrada Y Salida, BLOQUEAMOS el registro
+                messages.error(request, f"Atención {pasante.nombre_completo}: Ya completaste tus marcaciones de entrada y salida por hoy. No se permiten registros duplicados.")
                 
             return redirect('registrar_asistencia')
+            
         except Pasante.DoesNotExist:
             messages.error(request, "Error: El Carnet de Identidad no está registrado.")
             return redirect('registrar_asistencia')
+            
     return render(request, 'registro_de_asistencia_pasante_marca_actualizada/code.html')
-
 
 # --- VISTA PARA APROBAR / RECHAZAR DESDE PANEL ---
 @login_required
