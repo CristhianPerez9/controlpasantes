@@ -12,20 +12,17 @@ from django.conf import settings
 from .models import Pasante, RegistroAsistencia, TurnoPasante
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator  
+from django.core.mail import send_mail  # Importación para envíos de correo
 
 # --- FUNCIÓN AUXILIAR INTERNA ---
 def obtener_nombre_completo_ldap(user):
-    """
-    Toma el nombre y apellido mapeados por el LDAP de COMTECO.
-    Si vienen vacíos, usa el username en mayúsculas como respaldo.
-    """
     nombre_completo = f"{user.first_name} {user.last_name}".strip()
     if not nombre_completo:
         nombre_completo = user.username.upper()
     return nombre_completo
 
 
-# --- 1. CARGADOR AUXILIAR ---
+# --- CARGADOR AUXILIAR ---
 @login_required
 def importar_datos_csv(request):
     base_dir = settings.BASE_DIR
@@ -85,10 +82,10 @@ def importar_datos_csv(request):
                     pasante_actual = pasantes_db[nombre]
 
                     if hora_in and hora_in not in ['00:00:00', '']:
-                        RegistroAsistencia.objects.get_or_create(pasante=pasante_actual, fecha=fecha_obj, hora=hora_in, tipo='ENTRADA')
+                        RegistroAsistencia.objects.get_or_create(pasante=pasante_actual, fecha=fecha_obj, hora=hora_in, tipo='ENTRADA', estado='APROBADO')
                         contador_marcas += 1
                     if hora_out and hora_out not in ['00:00:00', '']:
-                        RegistroAsistencia.objects.get_or_create(pasante=pasante_actual, fecha=fecha_obj, hora=hora_out, tipo='SALIDA')
+                        RegistroAsistencia.objects.get_or_create(pasante=pasante_actual, fecha=fecha_obj, hora=hora_out, tipo='SALIDA', estado='APROBADO')
                         contador_marcas += 1
 
         return HttpResponse(f"<h2>🎉 ¡Sincronización Exitosa! Se cargaron {contador_marcas} marcaciones.</h2><br><a href='/panel/'>Volver al Panel</a>")
@@ -96,7 +93,7 @@ def importar_datos_csv(request):
         return HttpResponse(f"<h3>❌ Error: {e}</h3>")
 
 
-# --- 2. VISTAS DEL SISTEMA NORMALES ---
+# --- REGISTRO PUBLICO DESDE MOSTRADOR (CON FILTRO 16:15 Y ENVIO CORREO LDAP) ---
 def registrar_asistencia(request):
     if request.method == 'POST':
         ci_digitado = request.POST.get('ci_value')
@@ -106,32 +103,78 @@ def registrar_asistencia(request):
             return redirect('registrar_asistencia')
         try:
             pasante = Pasante.objects.get(ci=ci_digitado)
-            RegistroAsistencia.objects.create(pasante=pasante, tipo=tipo_marca)
-            messages.success(request, f"¡Marca de {tipo_marca.lower()} registrada con éxito para {pasante.nombre_completo}!")
+            
+            # --- VALIDACIÓN LOGICA DE HORAS EXTRA (16:15) ---
+            estado_registro = 'APROBADO'
+            ahora_hora = datetime.now().time()
+            limite_salida = datetime.strptime('16:15', '%H:%M').time()
+            
+            if tipo_marca == 'SALIDA' and ahora_hora > limite_salida:
+                estado_registro = 'PENDIENTE'
+
+            nueva_marca = RegistroAsistencia.objects.create(pasante=pasante, tipo=tipo_marca, estado=estado_registro)
+            
+            # --- ENVÍO DE CORREO AUTOMÁTICO AL SUPERVISOR SI QUEDÓ PENDIENTE ---
+            if estado_registro == 'PENDIENTE':
+                correo_supervisor = pasante.supervisor.email
+                if not correo_supervisor: # Respaldo si LDAP no mapeó el correo
+                    correo_supervisor = f"{pasante.supervisor.username}@comteco.com.bo"
+                
+                asunto = f"⚠️ Solicitud de Horas Extra Pendiente - {pasante.nombre_completo}"
+                cuerpo = f"Estimado(a) {obtener_nombre_completo_ldap(pasante.supervisor)},\n\n" \
+                         f"El pasante {pasante.nombre_completo} registró una SALIDA fuera del horario regular a las {nueva_marca.hora.strftime('%H:%M')}.\n" \
+                         f"Este registro ha quedado en estado PENDIENTE de aprobación.\n\n" \
+                         f"Por favor ingrese al Panel de Control del sistema para aprobar o rechazar esta marcación.\n\n" \
+                         f"Sistema de Control de Pasantes - TI COMTECO."
+                
+                # fail_silently=True evita que el sistema se caiga si las credenciales SMTP locales no están listas
+                send_mail(asunto, cuerpo, 'asistencia.pasantes@comteco.com.bo', [correo_supervisor], fail_silently=True)
+                
+                messages.warning(request, f"Marcación registrada. Al exceder las 16:15 se guardó como pre-registro pendiente de aprobación por su supervisor ({pasante.supervisor.username}).")
+            else:
+                messages.success(request, f"¡Marca de {tipo_marca.lower()} registrada con éxito para {pasante.nombre_completo}!")
+                
             return redirect('registrar_asistencia')
         except Pasante.DoesNotExist:
             messages.error(request, "Error: El Carnet de Identidad no está registrado.")
             return redirect('registrar_asistencia')
     return render(request, 'registro_de_asistencia_pasante_marca_actualizada/code.html')
 
+
+# --- VISTA PARA APROBAR / RECHAZAR DESDE PANEL ---
+@login_required
+def decidir_horas_extra(request, marca_id, accion):
+    marca = get_object_or_404(RegistroAsistencia, id=marca_id)
+    # Validar que sea el supervisor asignado o un superusuario administrativo
+    if request.user.is_superuser or marca.pasante.supervisor == request.user:
+        if accion == 'aprobar':
+            marca.estado = 'APROBADO'
+            marca.save()
+            messages.success(request, f"Marcación extraordinaria de {marca.pasante.nombre_completo} aprobada con éxito.")
+        elif accion == 'rechazar':
+            marca.estado = 'RECHAZADO'
+            marca.save()
+            messages.warning(request, f"Marcación extraordinaria de {marca.pasante.nombre_completo} rechazada.")
+    return redirect('panel_supervisor')
+
+
 @login_required
 def index_dashboard(request):
     return redirect('panel_supervisor')
 
-
-# q solo supervisores pueden ver la lista de pasantes
 @login_required
 def panel_supervisor(request):
     supervisor_actual = request.user
     mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
-    #supervisor este activo
+    
     if supervisor_actual.is_superuser:
-        # buscar los pasantes propio,o asignados al supervisor
         pasantes = Pasante.objects.all()
         asistencias = RegistroAsistencia.objects.filter(fecha=date.today()).select_related('pasante').order_by('-hora')
+        pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
     else:
         pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad))
         asistencias = RegistroAsistencia.objects.filter(pasante__in=pasantes, fecha=date.today()).select_related('pasante').order_by('-hora')
+        pendientes = RegistroAsistencia.objects.filter(pasante__in=pasantes, estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
 
     horas_hoy = 0.0
     alertas_tardanza = 0
@@ -150,7 +193,8 @@ def panel_supervisor(request):
         for m in marcas_asc:
             if m.tipo == 'ENTRADA':
                 entrada = m.hora.replace(second=0, microsecond=0)
-            elif m.tipo == 'SALIDA' and entrada is not None:
+            # CORRECCIÓN: Solo suma horas si la salida está APROBADA
+            elif m.tipo == 'SALIDA' and m.estado == 'APROBADO' and entrada is not None:
                 salida_limpia = m.hora.replace(second=0, microsecond=0)
                 dt_entrada = datetime.combine(date.today(), entrada)
                 dt_salida = datetime.combine(date.today(), salida_limpia)
@@ -160,6 +204,7 @@ def panel_supervisor(request):
     context = {
         'pasantes': pasantes, 
         'asistencias': asistencias, 
+        'asistencias_pendientes': pendientes, # Se pasa al contexto del panel
         'mi_unidad': mi_unidad,
         'horas_hoy': round(horas_hoy, 1),
         'alertas_tardanza': alertas_tardanza,
@@ -198,7 +243,8 @@ def listado_detallado(request):
             for m in lista_marcas:
                 if m.tipo == 'ENTRADA':
                     entrada = m.hora.replace(second=0, microsecond=0)
-                elif m.tipo == 'SALIDA' and entrada is not None:
+                # CORRECCIÓN: Solo calcula si está aprobado
+                elif m.tipo == 'SALIDA' and m.estado == 'APROBADO' and entrada is not None:
                     salida_limpia = m.hora.replace(second=0, microsecond=0)
                     dt_entrada = datetime.combine(date.today(), entrada)
                     dt_salida = datetime.combine(date.today(), salida_limpia)
@@ -224,10 +270,12 @@ def listado_detallado(request):
         marcas_agrupadas = {}
         for m in marcas_del_dia:
             if m.pasante not in marcas_agrupadas:
+                marcas_agadas = {}
                 marcas_agrupadas[m.pasante] = {'entrada': None, 'salida': None}
             if m.tipo == 'ENTRADA' and not marcas_agrupadas[m.pasante]['entrada']:
                 marcas_agrupadas[m.pasante]['entrada'] = m.hora.replace(second=0, microsecond=0)
-            elif m.tipo == 'SALIDA':
+            # CORRECCIÓN: Filtrado de salida aprobada
+            elif m.tipo == 'SALIDA' and m.estado == 'APROBADO':
                 marcas_agrupadas[m.pasante]['salida'] = m.hora.replace(second=0, microsecond=0)
 
         for pasante, datos in marcas_agrupadas.items():
@@ -256,7 +304,6 @@ def listado_detallado(request):
     return render(request, 'listado_detallado_de_asistencia_marca_actualizada/code.html', context)
 
 
-# --- 3. LÓGICA DE REPORTES PERSONALIZADOS ---
 @login_required
 def generacion_reportes(request):
     supervisor_actual = request.user
@@ -294,7 +341,8 @@ def generacion_reportes(request):
             
         if m.tipo == 'ENTRADA' and not marcas_agrupadas[clave]['entrada']:
             marcas_agrupadas[clave]['entrada'] = m.hora.replace(second=0, microsecond=0)
-        elif m.tipo == 'SALIDA':
+        # CORRECCIÓN: Validación en reportes oficiales
+        elif m.tipo == 'SALIDA' and m.estado == 'APROBADO':
             marcas_agrupadas[clave]['salida'] = m.hora.replace(second=0, microsecond=0)
 
     reporte_final = []
@@ -306,7 +354,7 @@ def generacion_reportes(request):
             dt_entrada = datetime.combine(fecha, datos['entrada'])
             dt_salida = datetime.combine(fecha, datos['salida'])
             horas_dia = (dt_salida - dt_entrada).total_seconds() / 3600.0
-            total_horas_periodo += horas_dia
+            total_horas_periodo += hours_dia
             
         reporte_final.append({
             'pasante': pasante,
@@ -377,7 +425,7 @@ def lista_pasantes(request):
             for m in lista_marcas:
                 if m.tipo == 'ENTRADA':
                     entrada = m.hora.replace(second=0, microsecond=0)
-                elif m.tipo == 'SALIDA' and entrada is not None:
+                elif m.tipo == 'SALIDA' and m.estado == 'APROBADO' and entrada is not None:
                     salida_limpia = m.hora.replace(second=0, microsecond=0)
                     dt_entrada = datetime.combine(date.today(), entrada)
                     dt_salida = datetime.combine(date.today(), salida_limpia)
@@ -399,6 +447,7 @@ def lista_pasantes(request):
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'lista_pasantes_marca_actualizada/code.html', context)
+
 
 @login_required
 def gestionar_turnos(request):
@@ -439,7 +488,7 @@ def gestionar_turnos(request):
     }
     return render(request, 'gestionar_turnos_marca_actualizada/code.html', context)
 
-# --- NUEVA FUNCIÓN PARA CERRAR SESIÓN ---
+
 @login_required
 def cerrar_sesion(request):
     logout(request)

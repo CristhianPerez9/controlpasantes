@@ -7,22 +7,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-tu-clave-secreta-aqui')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
-CSRF_TRUSTED_ORIGINS = [
-   'http://localhost',
-   'http://127.0.0.1',]
+# desarrollo #####################################
+# DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+# ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+# CSRF_TRUSTED_ORIGINS = [
+#    'http://localhost',
+#    'http://127.0.0.1',]
 
 
 #**************************** produccion
-# DEBUG = False
-# # SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', SECRET_KEY)
-# # ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
-# ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
-# CSRF_TRUSTED_ORIGINS = [
-#     'https://pasantes.comteco.com.bo',
-#     'https://www.pasantes.comteco.com.bo', ]
+DEBUG = False
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+CSRF_TRUSTED_ORIGINS = [
+    'https://pasantes.comteco.com.bo',
+    'https://www.pasantes.comteco.com.bo', ]
 
 
 # Application definition

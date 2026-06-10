@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-
 ## añadir la variable estado de pasante (true , false)
 class Pasante(models.Model):
     ci = models.CharField(max_length=20, unique=True)
@@ -25,6 +24,10 @@ class RegistroAsistencia(models.Model):
         ('ENTRADA', 'Entrada'),
         ('SALIDA', 'Salida'),
     ]
+    
+    # CORRECCIÓN: El campo estado se movió afuera de los corchetes de TIPO_CHOICES
+    estado = models.CharField(max_length=20, default='APROBADO')
+    
     pasante = models.ForeignKey(Pasante, on_delete=models.CASCADE, related_name='asistencias')
     fecha = models.DateField(auto_now_add=True)
     hora = models.TimeField(auto_now_add=True)
