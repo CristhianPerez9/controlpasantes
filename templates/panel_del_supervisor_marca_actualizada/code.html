@@ -50,9 +50,21 @@
         </aside>
 
         <main class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-6">
+            
             <div>
                 <h2 class="text-xl md:text-2xl font-bold text-slate-800">Panel de Control de Supervisor</h2>
                 <p class="text-xs md:text-sm text-slate-400 mt-0.5">Resumen operativo y métricas de asistencia para hoy.</p>
+                
+                {% if messages %}
+                <div class="mt-4 flex flex-col gap-2">
+                    {% for message in messages %}
+                        <div class="px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 {% if message.tags == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% elif message.tags == 'warning' %}bg-amber-50 text-amber-700 border border-amber-200{% else %}bg-rose-50 text-rose-700 border border-rose-200{% endif %}">
+                            <i class="fa-solid {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-xmark{% endif %}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -74,6 +86,31 @@
                 </div>
             </div>
 
+            {% if asistencias_pendientes %}
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
+                <h3 class="text-sm font-bold text-amber-800 uppercase tracking-wide flex items-center gap-2 mb-3">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Salidas Pendientes de Aprobación (> 16:15)
+                </h3>
+                <div class="flex flex-col gap-2">
+                    {% for pendiente in asistencias_pendientes %}
+                    <div class="bg-white border border-slate-100 rounded-xl p-4 flex flex-col sm:flex-row justify-between sm:items-center text-sm shadow-sm gap-4">
+                        <div>
+                            <span class="font-bold text-slate-800">{{ pendiente.pasante.nombre_completo }}</span> 
+                            registró salida a las <span class="font-bold text-[#cc0000]">{{ pendiente.hora|time:"H:i" }}</span>.
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="{% url 'decidir_horas_extra' pendiente.id 'aprobar' %}" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-lg transition-colors text-xs flex items-center justify-center">
+                                <i class="fa-solid fa-check mr-1"></i> Aprobar
+                            </a>
+                            <a href="{% url 'decidir_horas_extra' pendiente.id 'rechazar' %}" class="bg-slate-700 hover:bg-slate-800 text-white font-bold px-4 py-2 rounded-lg transition-colors text-xs flex items-center justify-center">
+                                <i class="fa-solid fa-xmark mr-1"></i> Rechazar
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start flex-1">
                 
                 <div class="col-span-1 lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 flex flex-col gap-4 min-h-[300px] md:min-h-[400px]">
