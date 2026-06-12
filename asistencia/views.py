@@ -189,11 +189,13 @@ def panel_supervisor(request):
     if supervisor_actual.is_superuser:
         pasantes = Pasante.objects.all()
         asistencias = RegistroAsistencia.objects.filter(fecha=date.today()).select_related('pasante').order_by('-hora')
-        pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
+        # pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
     else:
-        pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad))
+        pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)) 
         asistencias = RegistroAsistencia.objects.filter(pasante__in=pasantes, fecha=date.today()).select_related('pasante').order_by('-hora')
-        pendientes = RegistroAsistencia.objects.filter(pasante__in=pasantes, estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
+        # pendientes = RegistroAsistencia.objects.filter(pasante__in=pasantes, estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
+    
+    pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE', pasante__supervisor=supervisor_actual)
 
     horas_hoy = 0.0
     alertas_tardanza = 0
