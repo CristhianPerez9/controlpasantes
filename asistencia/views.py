@@ -514,11 +514,8 @@ def lista_pasantes(request):
     lista_con_calculos = []
     for p in pasantes_queryset:
         horas_hechas_redond = calcular_horas_pasante(p)
-        print(f"DEBUG: Pasante {p.nombre_completo} - Horas Hechas: {horas_hechas_redond}")
         horas_req_float = float(p.horas_requeridas)
-        print(f"DEBUG: Pasante {p.nombre_completo} - Horas Requeridas: {horas_req_float}")
         horas_restantes = max(0.0, round(horas_req_float - horas_hechas_redond, 1))
-        print(f"DEBUG: Pasante {p.nombre_completo} - Horas Restantes: {horas_restantes}")
         
         porcentaje = 0
         if horas_req_float > 0:
