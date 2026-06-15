@@ -81,6 +81,34 @@
                         <input type="text" name="nombre_completo" required placeholder="Nombre Apellido" class="w-full text-xs md:text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 md:py-2.5 outline-none focus:border-slate-400 transition-colors"/>
                     </div>
 
+                    {% if poder_absoluto %}
+                    <div class="bg-rose-50 border border-rose-200 p-3 rounded-xl mt-1 flex flex-col gap-3">
+                        <div class="flex items-center gap-2 font-bold text-[10px] uppercase text-[#cc0000] border-b border-rose-200 pb-2">
+                            <i class="fa-solid fa-sitemap"></i> Asignación Corporativa (RRHH)
+                        </div>
+                        <div class="grid grid-cols-1 gap-3">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold text-slate-600 uppercase">Supervisor (LDAP)</label>
+                                <input list="lista_usuarios_ldap" name="supervisor_username" placeholder="Ej: cperezb" class="w-full text-xs bg-white border border-rose-300 rounded-lg px-3 py-2 outline-none focus:border-[#cc0000]"/>
+                                <datalist id="lista_usuarios_ldap">
+                                    {% for u in todos_los_usuarios %}
+                                        <option value="{{ u.username }}">{{ u.first_name }} {{ u.last_name }} ({{ u.perfil.unidad }})</option>
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold text-slate-600 uppercase">Área Destino</label>
+                                <input list="lista_areas" name="area_asignada" placeholder="Ej: Call Center" class="w-full text-xs bg-white border border-rose-300 rounded-lg px-3 py-2 outline-none focus:border-[#cc0000]"/>
+                                <datalist id="lista_areas">
+                                    {% for area in areas_disponibles %}
+                                        <option value="{{ area }}">
+                                    {% endfor %}
+                                </datalist>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-semibold text-slate-400 uppercase">Fecha Inicio</label>
@@ -110,7 +138,7 @@
                 
                 <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex-1">
                     <div class="overflow-x-auto w-full">
-                        <table class="w-full text-left text-[10px] md:text-xs border-collapse min-w-[600px]">
+                        <table class="w-full text-left text-[10px] md:text-xs border-collapse min-w-[650px]">
                             <thead>
                                 <tr class="bg-slate-50 font-bold text-slate-400 uppercase text-[8px] md:text-[9px] tracking-wider border-b border-slate-200">
                                     <th class="py-3 md:py-4 px-4 md:px-5">Pasante / Período</th>
@@ -123,13 +151,36 @@
                             <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
                                 {% for calc in pasantes_calculados %}
                                 <tr class="hover:bg-slate-50/50 transition-colors">
+                                    
                                     <td class="py-3 md:py-4 px-4 md:px-5">
                                         <p class="font-bold text-slate-800 text-xs md:text-sm">{{ calc.objeto.nombre_completo }}</p>
                                         <p class="text-[8px] md:text-[10px] text-slate-400 mt-0.5">Contrato: {{ calc.objeto.fecha_inicio|date:"d/m/Y" }} - {{ calc.objeto.fecha_fin|date:"d/m/Y" }}</p>
+                                        {% if poder_absoluto %}
+                                            <p class="text-[8px] md:text-[9px] text-[#cc0000] font-bold mt-1 uppercase"><i class="fa-solid fa-user-tie mr-1"></i> {{ calc.objeto.supervisor.username }} ({{ calc.objeto.area }})</p>
+                                        {% endif %}
                                     </td>
+                                    
                                     <td class="py-3 md:py-4 px-4 md:px-5 text-center font-bold text-slate-500">{{ calc.objeto.horas_requeridas }}h</td>
-                                    <td class="py-3 md:py-4 px-4 md:px-5 text-center font-black text-emerald-600">{{ calc.horas_hechas }}h</td>
-                                    <td class="py-3 md:py-4 px-4 md:px-5 text-center font-black text-[#cc0000]">{{ calc.horas_restantes }}h</td>
+                                    
+                                    <td class="py-3 md:py-4 px-4 md:px-5">
+                                        <div class="flex flex-col items-center justify-center">
+                                            <span class="font-black text-emerald-600 text-sm">{{ calc.horas_hechas }}h</span>
+                                            <span class="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md mt-1">{{ calc.porcentaje }}%</span>
+                                        </div>
+                                    </td>
+                                    
+                                    <td class="py-3 md:py-4 px-4 md:px-5">
+                                        <div class="flex flex-col items-center justify-center w-full">
+                                            <span class="font-black text-[#cc0000] text-sm">{{ calc.horas_restantes }}h</span>
+                                            <div class="w-full max-w-[80px] bg-slate-200 rounded-full h-1.5 mt-1.5 overflow-hidden flex">
+                                                <div class="h-full transition-all duration-500 {% if calc.porcentaje >= 100 %}bg-emerald-500{% elif calc.alerta_conclusion %}bg-amber-500 animate-pulse{% else %}bg-blue-500{% endif %}" style="width: {{ calc.porcentaje }}%;"></div>
+                                            </div>
+                                            {% if calc.alerta_conclusion and calc.porcentaje < 100 %}
+                                                <span class="text-[9px] font-bold text-amber-600 mt-1 animate-pulse"><i class="fa-solid fa-bell mr-0.5"></i> ¡Cerca del fin!</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    
                                     <td class="py-3 md:py-4 px-4 md:px-5 text-center">
                                         {% if calc.objeto.nota_final %}
                                             <span class="bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded border border-emerald-200">{{ calc.objeto.nota_final }}/100</span>

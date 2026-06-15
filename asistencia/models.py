@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-## añadir la variable estado de pasante (true , false)
 class Pasante(models.Model):
     ci = models.CharField(max_length=20, unique=True)
     nombre_completo = models.CharField(max_length=150)
@@ -25,7 +24,6 @@ class RegistroAsistencia(models.Model):
         ('SALIDA', 'Salida'),
     ]
     
-    # CORRECCIÓN: El campo estado se movió afuera de los corchetes de TIPO_CHOICES
     estado = models.CharField(max_length=20, default='APROBADO')
     
     pasante = models.ForeignKey(Pasante, on_delete=models.CASCADE, related_name='asistencias')
@@ -61,3 +59,12 @@ class TurnoPasante(models.Model):
 
     def __str__(self):
         return f"{self.pasante.nombre_completo} - {self.get_dia_display()} ({self.turno})"
+
+# ==========================================
+# NUEVO MODELO: DIRECTORIO DE ÁREAS (SIRHU)
+# ==========================================
+class AreaEmpresa(models.Model):
+    nombre = models.CharField(max_length=200, unique=True)
+
+    def __str__(self):
+        return self.nombre

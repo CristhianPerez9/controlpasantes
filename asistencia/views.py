@@ -9,91 +9,171 @@ from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
 from django.conf import settings
-from .models import Pasante, RegistroAsistencia, TurnoPasante
+from .models import Pasante, RegistroAsistencia, TurnoPasante, AreaEmpresa
+from appauth.models import PerfilUsuario
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator  
-from django.core.mail import send_mail  # Importación para envíos de correo
+from django.core.mail import send_mail
 
-# --- FUNCIÓN AUXILIAR INTERNA ---
+# --- FUNCIONES AUXILIARES INTERNAS ---
 def obtener_nombre_completo_ldap(user):
     nombre_completo = f"{user.first_name} {user.last_name}".strip()
     if not nombre_completo:
         nombre_completo = user.username.upper()
     return nombre_completo
 
+def es_super_admin(user):
+    """ Regla Maestra: Define quién tiene el poder absoluto en el sistema corporativo """
+    if user.username in ['cperezb', 'vvedia', 'vvedia@comteco.com.bo']:
+        return True
+    if hasattr(user, 'perfil') and user.perfil.unidad:
+        if 'RECURSOS HUMANOS' in user.perfil.unidad.upper():
+            return True
+    if user.is_superuser:
+        return True
+    return False
 
-# --- CARGADOR AUXILIAR ---
+def calcular_horas_pasante(pasante):
+    """ Calcula las horas totales hechas por un pasante (solo registros aprobados) """
+    marcas = RegistroAsistencia.objects.filter(pasante=pasante)
+    horas_totales = 0.0
+    marcas_por_dia = {}
+    print(f"DEBUG: Calculando horas para {pasante.nombre_completo} - Total marcas: {marcas.count()}")
+    for m in marcas:
+        if m.fecha not in marcas_por_dia:
+            marcas_por_dia[m.fecha] = []
+        marcas_por_dia[m.fecha].append(m)
+    
+    for fecha_dia, lista_marcas in marcas_por_dia.items():
+        entrada = None
+        for m in lista_marcas:
+            if m.tipo == 'ENTRADA':
+                entrada = m.hora.replace(second=0, microsecond=0)
+            elif m.tipo == 'SALIDA' and m.estado == 'APROBADO' and entrada is not None:
+                salida_limpia = m.hora.replace(second=0, microsecond=0)
+                dt_entrada = datetime.combine(date.today(), entrada)
+                dt_salida = datetime.combine(date.today(), salida_limpia)
+                horas_totales += (dt_salida - dt_entrada).total_seconds() / 3600.0
+                entrada = None
+    return round(horas_totales, 1)
+
+
+# --- CARGADOR AUXILIAR (A PRUEBA DE DUPLICADOS Y CABECERAS) ---
 @login_required
 def importar_datos_csv(request):
     base_dir = settings.BASE_DIR
     archivos_en_raiz = os.listdir(base_dir)
-    archivo_detectado = None
-
+    
+    # 1. IMPORTAR ÁREAS DE LA EMPRESA (ARCHIVO SIRHU)
+    archivo_areas = None
     for f in archivos_en_raiz:
-        if f.lower() in ['datos.xls', 'datos.xlsx', 'datos.csv']:
+        if 'SIRHU' in f.upper() and f.endswith('.csv'):
+            archivo_areas = os.path.join(base_dir, f)
+            break
+            
+    areas_creadas = 0
+    if archivo_areas:
+        try:
+            with open(archivo_areas, 'r', encoding='utf-8-sig', errors='ignore') as f:
+                contenido_areas = f.read().splitlines()
+                if contenido_areas:
+                    # Detectar separador (coma o punto y coma) dinámicamente
+                    sep = ';' if ';' in contenido_areas[0] or (len(contenido_areas) > 1 and ';' in contenido_areas[1]) else ','
+                    lector_areas = csv.reader(contenido_areas, delimiter=sep)
+                    
+                    for fila in lector_areas:
+                        # Saltar filas vacías o incompletas
+                        if not fila or len(fila) < 3: 
+                            continue
+                        
+                        col_cero = str(fila[0]).strip().upper()
+                        # Limpieza extrema: quitar espacios y convertir a mayúsculas
+                        nombre_area = str(fila[2]).strip().upper()
+                        
+                        # IGNORAR CUALQUIER CABECERA
+                        if 'CÓDIGO' in col_cero or 'SIRHU' in col_cero or nombre_area == 'DESCRIPCIÓN':
+                            continue
+                        
+                        # Guardar área limpia manejando error de duplicidad
+                        if nombre_area:
+                            try:
+                                obj = AreaEmpresa.objects.filter(nombre=nombre_area).first()
+                                if not obj:
+                                    AreaEmpresa.objects.create(nombre=nombre_area)
+                                    areas_creadas += 1
+                            except Exception:
+                                pass # Ignorar si la base de datos detecta una colisión y seguir con el archivo
+        except Exception as e:
+            return HttpResponse(f"<h3>❌ Error leyendo archivo SIRHU: {e}</h3>")
+
+    # 2. IMPORTAR ASISTENCIA ANTIGUA
+    archivo_detectado = None
+    for f in archivos_en_raiz:
+        if f.lower() in ['datos.xls', 'datos.xlsx', 'datos.csv'] and 'sirhu' not in f.lower():
             archivo_detectado = os.path.join(base_dir, f)
             break
 
-    if not archivo_detectado:
-        return HttpResponse(f"<h3>❌ Archivo No Encontrado en: {base_dir}</h3>")
+    if not archivo_detectado and not archivo_areas:
+        return HttpResponse(f"<h3>❌ Archivos No Encontrados en la carpeta principal: {base_dir}</h3>")
 
-    columnas_excel = {'Deysi': (1, 2), 'Yusara': (4, 5), 'Alison': (7, 8), 'Sheyling': (10, 11)}
-    user_supervisor = request.user
+    contador_marcas = 0
+    if archivo_detectado:
+        columnas_excel = {'Deysi': (1, 2), 'Yusara': (4, 5), 'Alison': (7, 8), 'Sheyling': (10, 11)}
+        user_supervisor = request.user
 
-    pasantes_db = {}
-    for nombre in columnas_excel.keys():
-        obj, creado = Pasante.objects.get_or_create(
-            ci=f"CI-{nombre.upper()}",
-            defaults={'nombre_completo': nombre, 'area': 'GERENCIA DE TECNOLOGIAS DE INFORMACION', 'supervisor': user_supervisor, 'horas_requeridas': 360}
-        )
-        if not creado:
-            obj.supervisor = user_supervisor
-            obj.save()
-        pasantes_db[nombre] = obj
+        pasantes_db = {}
+        for nombre in columnas_excel.keys():
+            obj, creado = Pasante.objects.get_or_create(
+                ci=f"CI-{nombre.upper()}",
+                defaults={'nombre_completo': nombre, 'area': 'GERENCIA DE TECNOLOGIAS DE INFORMACION', 'supervisor': user_supervisor, 'horas_requeridas': 360}
+            )
+            if not creado:
+                obj.supervisor = user_supervisor
+                obj.save()
+            pasantes_db[nombre] = obj
 
-    try:
-        with open(archivo_detectado, 'r', encoding='utf-8-sig', errors='ignore') as f:
-            contenido = f.read().splitlines()
+        try:
+            with open(archivo_detectado, 'r', encoding='utf-8-sig', errors='ignore') as f:
+                contenido = f.read().splitlines()
 
-        separador = ';' if ';' in contenido[0] else ','
-        lector = csv.reader(contenido, delimiter=separador)
-        lineas = list(lector)
+            separador = ';' if ';' in contenido[0] else ','
+            lector = csv.reader(contenido, delimiter=separador)
+            lineas = list(lector)
 
-        indice_inicio = 0
-        for i, fila in enumerate(lineas):
-            if fila and str(fila[0]).strip().lower() == 'fecha':
-                indice_inicio = i + 1
-                break
+            indice_inicio = 0
+            for i, fila in enumerate(lineas):
+                if fila and str(fila[0]).strip().lower() == 'fecha':
+                    indice_inicio = i + 1
+                    break
 
-        contador_marcas = 0
-        for fila in lineas[indice_inicio:]:
-            if not fila or not str(fila[0]).strip(): continue
-            fecha_str = str(fila[0]).strip()
-            try:
-                fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-            except:
-                continue
+            for fila in lineas[indice_inicio:]:
+                if not fila or not str(fila[0]).strip(): continue
+                fecha_str = str(fila[0]).strip()
+                try:
+                    fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                except:
+                    continue
 
-            for nombre, columnas in columnas_excel.items():
-                col_entrada, col_salida = columnas
-                if len(fila) > col_salida:
-                    hora_in = str(fila[col_entrada].strip() or '')
-                    hora_out = str(fila[col_salida].strip() or '')
-                    pasante_actual = pasantes_db[nombre]
+                for nombre, columnas in columnas_excel.items():
+                    col_entrada, col_salida = columnas
+                    if len(fila) > col_salida:
+                        hora_in = str(fila[col_entrada].strip() or '')
+                        hora_out = str(fila[col_salida].strip() or '')
+                        pasante_actual = pasantes_db[nombre]
 
-                    if hora_in and hora_in not in ['00:00:00', '']:
-                        RegistroAsistencia.objects.get_or_create(pasante=pasante_actual, fecha=fecha_obj, hora=hora_in, tipo='ENTRADA', estado='APROBADO')
-                        contador_marcas += 1
-                    if hora_out and hora_out not in ['00:00:00', '']:
-                        RegistroAsistencia.objects.get_or_create(pasante=pasante_actual, fecha=fecha_obj, hora=hora_out, tipo='SALIDA', estado='APROBADO')
-                        contador_marcas += 1
+                        if hora_in and hora_in not in ['00:00:00', '']:
+                            RegistroAsistencia.objects.get_or_create(pasante=pasante_actual, fecha=fecha_obj, hora=hora_in, tipo='ENTRADA', estado='APROBADO')
+                            contador_marcas += 1
+                        if hora_out and hora_out not in ['00:00:00', '']:
+                            RegistroAsistencia.objects.get_or_create(pasante=pasante_actual, fecha=fecha_obj, hora=hora_out, tipo='SALIDA', estado='APROBADO')
+                            contador_marcas += 1
+        except Exception as e:
+            return HttpResponse(f"<h3>❌ Error en archivo de asistencias: {e}</h3>")
 
-        return HttpResponse(f"<h2>🎉 ¡Sincronización Exitosa! Se cargaron {contador_marcas} marcaciones.</h2><br><a href='/panel/'>Volver al Panel</a>")
-    except Exception as e:
-        return HttpResponse(f"<h3>❌ Error: {e}</h3>")
+    return HttpResponse(f"<h2>🎉 ¡Operación Exitosa!</h2><p>Se registraron {areas_creadas} nuevas áreas/departamentos desde el SIRHU.</p><p>Se cargaron {contador_marcas} marcaciones.</p><br><a href='/panel/'>Volver al Panel</a>")
 
 
-# --- REGISTRO PUBLICO DESDE MOSTRADOR (CON FILTRO 16:15 Y ENVIO CORREO LDAP) ---
+# --- REGISTRO PUBLICO DESDE MOSTRADOR ---
 def registrar_asistencia(request):
     if request.method == 'POST':
         ci_digitado = request.POST.get('ci_value')
@@ -106,22 +186,15 @@ def registrar_asistencia(request):
             pasante = Pasante.objects.get(ci=ci_digitado)
             fecha_hoy = date.today()
             
-            # 1. BUSCAMOS SI YA EXISTEN MARCAS HOY PARA ESTE PASANTE
             marca_entrada = RegistroAsistencia.objects.filter(pasante=pasante, fecha=fecha_hoy, tipo='ENTRADA').first()
             marca_salida = RegistroAsistencia.objects.filter(pasante=pasante, fecha=fecha_hoy, tipo='SALIDA').first()
-            
             estado_registro = 'APROBADO'
             
-            # 2. LÓGICA INTELIGENTE ANTI-DUPLICADOS
             if not marca_entrada:
-                # Si no tiene entrada, registramos la ENTRADA
                 RegistroAsistencia.objects.create(pasante=pasante, tipo='ENTRADA', estado=estado_registro)
                 messages.success(request, f"¡Marca de ENTRADA registrada con éxito para {pasante.nombre_completo}!")
                 
             elif marca_entrada and not marca_salida:
-                # Si ya tiene entrada pero NO salida, registramos la SALIDA
-                
-                # --- Validación Lógica de Horas Extra (16:15) ---
                 ahora_hora = datetime.now().time()
                 limite_salida = datetime.strptime('16:15', '%H:%M').time() 
                 
@@ -130,27 +203,32 @@ def registrar_asistencia(request):
                     
                 nueva_marca = RegistroAsistencia.objects.create(pasante=pasante, tipo='SALIDA', estado=estado_registro)
                 
-                # --- Envío de correo si quedó pendiente ---
+                correo_supervisor = pasante.supervisor.email if pasante.supervisor.email else f"{pasante.supervisor.username}@comteco.com.bo"
+                
                 if estado_registro == 'PENDIENTE':
-                    correo_supervisor = pasante.supervisor.email
-                    if not correo_supervisor:
-                        correo_supervisor = f"{pasante.supervisor.username}@comteco.com.bo"
-                    
                     asunto = f"⚠️ Solicitud de Horas Extra Pendiente - {pasante.nombre_completo}"
                     cuerpo = f"Estimado(a) {obtener_nombre_completo_ldap(pasante.supervisor)},\n\n" \
-                             f"El pasante {pasante.nombre_completo} registró una SALIDA fuera del horario regular a las {nueva_marca.hora.strftime('%H:%M')}.\n" \
-                             f"Este registro ha quedado en estado PENDIENTE de aprobación.\n\n" \
-                             f"Por favor ingrese al Panel de Control del sistema para aprobar o rechazar esta marcación.\n\n" \
-                             f"Sistema de Control de Pasantes - TI COMTECO."
-                    
+                             f"El pasante {pasante.nombre_completo} registró una SALIDA extraordinaria a las {nueva_marca.hora.strftime('%H:%M')}.\n" \
+                             f"Quedó PENDIENTE de aprobación en el Panel de Control.\n\nSistema TI COMTECO."
                     send_mail(asunto, cuerpo, 'asistencia.pasantes@comteco.com.bo', [correo_supervisor], fail_silently=True)
-                    messages.warning(request, f"Salida registrada. Al exceder las 16:15 se guardó como pre-registro pendiente de aprobación por su supervisor.")
+                    messages.warning(request, f"Salida registrada. Al exceder las 16:15 se guardó como pendiente de aprobación por su supervisor.")
                 else:
                     messages.success(request, f"¡Marca de SALIDA registrada con éxito para {pasante.nombre_completo}!")
                     
+                horas_hechas = calcular_horas_pasante(pasante)
+                horas_restantes = float(pasante.horas_requeridas) - horas_hechas
+                
+                if 24 <= horas_restantes <= 30:
+                    asunto_fin = f"🎓 AVISO: Conclusión de Pasantía Próxima - {pasante.nombre_completo}"
+                    cuerpo_fin = f"Estimado(a) {obtener_nombre_completo_ldap(pasante.supervisor)},\n\n" \
+                                 f"Le informamos que el pasante {pasante.nombre_completo} está en su semana final de pasantía.\n" \
+                                 f"Total requerido: {pasante.horas_requeridas} hrs\n" \
+                                 f"Horas restantes aproximadas: {round(horas_restantes, 1)} hrs.\n\n" \
+                                 f"Por favor, prepare la evaluación de desempeño correspondiente con RRHH.\n\nSistema TI COMTECO."
+                    send_mail(asunto_fin, cuerpo_fin, 'asistencia.pasantes@comteco.com.bo', [correo_supervisor], fail_silently=True)
+
             else:
-                # Si ya tiene Entrada Y Salida, BLOQUEAMOS el registro
-                messages.error(request, f"Atención {pasante.nombre_completo}: Ya completaste tus marcaciones de entrada y salida por hoy. No se permiten registros duplicados.")
+                messages.error(request, f"Atención {pasante.nombre_completo}: Ya completaste tus marcaciones por hoy.")
                 
             return redirect('registrar_asistencia')
             
@@ -160,12 +238,14 @@ def registrar_asistencia(request):
             
     return render(request, 'registro_de_asistencia_pasante_marca_actualizada/code.html')
 
-# --- VISTA PARA APROBAR / RECHAZAR DESDE PANEL ---
+
+# --- VISTA PARA APROBAR / RECHAZAR ---
 @login_required
 def decidir_horas_extra(request, marca_id, accion):
     marca = get_object_or_404(RegistroAsistencia, id=marca_id)
-    # Validar que sea el supervisor asignado o un superusuario administrativo
-    if request.user.is_superuser or marca.pasante.supervisor == request.user:
+    poder_absoluto = es_super_admin(request.user)
+    
+    if poder_absoluto or marca.pasante.supervisor == request.user:
         if accion == 'aprobar':
             marca.estado = 'APROBADO'
             marca.save()
@@ -181,21 +261,21 @@ def decidir_horas_extra(request, marca_id, accion):
 def index_dashboard(request):
     return redirect('panel_supervisor')
 
+
 @login_required
 def panel_supervisor(request):
     supervisor_actual = request.user
     mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
+    poder_absoluto = es_super_admin(supervisor_actual)
     
-    if supervisor_actual.is_superuser:
+    if poder_absoluto:
         pasantes = Pasante.objects.all()
         asistencias = RegistroAsistencia.objects.filter(fecha=date.today()).select_related('pasante').order_by('-hora')
-        # pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
+        pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
     else:
-        pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)) 
+        pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad))
         asistencias = RegistroAsistencia.objects.filter(pasante__in=pasantes, fecha=date.today()).select_related('pasante').order_by('-hora')
-        # pendientes = RegistroAsistencia.objects.filter(pasante__in=pasantes, estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
-    
-    pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE', pasante__supervisor=supervisor_actual)
+        pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE', pasante__supervisor=supervisor_actual).select_related('pasante').order_by('-fecha', '-hora')
 
     horas_hoy = 0.0
     alertas_tardanza = 0
@@ -214,7 +294,6 @@ def panel_supervisor(request):
         for m in marcas_asc:
             if m.tipo == 'ENTRADA':
                 entrada = m.hora.replace(second=0, microsecond=0)
-            # CORRECCIÓN: Solo suma horas si la salida está APROBADA
             elif m.tipo == 'SALIDA' and m.estado == 'APROBADO' and entrada is not None:
                 salida_limpia = m.hora.replace(second=0, microsecond=0)
                 dt_entrada = datetime.combine(date.today(), entrada)
@@ -225,8 +304,8 @@ def panel_supervisor(request):
     context = {
         'pasantes': pasantes, 
         'asistencias': asistencias, 
-        'asistencias_pendientes': pendientes, # Se pasa al contexto del panel
-        'mi_unidad': mi_unidad,
+        'asistencias_pendientes': pendientes,
+        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad,
         'horas_hoy': round(horas_hoy, 1),
         'alertas_tardanza': alertas_tardanza,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
@@ -238,8 +317,9 @@ def panel_supervisor(request):
 def listado_detallado(request):
     supervisor_actual = request.user
     mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
+    poder_absoluto = es_super_admin(supervisor_actual)
     
-    if supervisor_actual.is_superuser:
+    if poder_absoluto:
         pasantes_queryset = Pasante.objects.all().order_by('nombre_completo')
         queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
     else:
@@ -250,33 +330,11 @@ def listado_detallado(request):
     horas_area = 0.0
     
     for p in pasantes_queryset:
-        marcas_p = RegistroAsistencia.objects.filter(pasante=p).order_by('fecha', 'hora')
-        horas_totales_p = 0.0
-        marcas_por_dia_p = {}
-        
-        for m in marcas_p:
-            if m.fecha not in marcas_por_dia_p:
-                marcas_por_dia_p[m.fecha] = []
-            marcas_por_dia_p[m.fecha].append(m)
-            
-        for fecha_dia, lista_marcas in marcas_por_dia_p.items():
-            entrada = None
-            for m in lista_marcas:
-                if m.tipo == 'ENTRADA':
-                    entrada = m.hora.replace(second=0, microsecond=0)
-                # CORRECCIÓN: Solo calcula si está aprobado
-                elif m.tipo == 'SALIDA' and m.estado == 'APROBADO' and entrada is not None:
-                    salida_limpia = m.hora.replace(second=0, microsecond=0)
-                    dt_entrada = datetime.combine(date.today(), entrada)
-                    dt_salida = datetime.combine(date.today(), salida_limpia)
-                    tot_calc = (dt_salida - dt_entrada).total_seconds() / 3600.0
-                    horas_totales_p += tot_calc
-                    horas_area += tot_calc
-                    entrada = None
-                    
+        horas_totales_p = calcular_horas_pasante(p)
+        horas_area += horas_totales_p
         lista_con_calculos.append({
             'objeto': p,
-            'horas_hechas': round(horas_totales_p, 1)
+            'horas_hechas': horas_totales_p
         })
 
     fechas_unicas = queryset_marcas.order_by('-fecha').values_list('fecha', flat=True).distinct()
@@ -291,11 +349,9 @@ def listado_detallado(request):
         marcas_agrupadas = {}
         for m in marcas_del_dia:
             if m.pasante not in marcas_agrupadas:
-                marcas_agadas = {}
                 marcas_agrupadas[m.pasante] = {'entrada': None, 'salida': None}
             if m.tipo == 'ENTRADA' and not marcas_agrupadas[m.pasante]['entrada']:
                 marcas_agrupadas[m.pasante]['entrada'] = m.hora.replace(second=0, microsecond=0)
-            # CORRECCIÓN: Filtrado de salida aprobada
             elif m.tipo == 'SALIDA' and m.estado == 'APROBADO':
                 marcas_agrupadas[m.pasante]['salida'] = m.hora.replace(second=0, microsecond=0)
 
@@ -319,7 +375,7 @@ def listado_detallado(request):
         'pagina_actual': pagina_actual,            
         'horas_area': round(horas_area, 1),        
         'pasantes_calculados': lista_con_calculos, 
-        'mi_unidad': mi_unidad,
+        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'listado_detallado_de_asistencia_marca_actualizada/code.html', context)
@@ -329,8 +385,9 @@ def listado_detallado(request):
 def generacion_reportes(request):
     supervisor_actual = request.user
     mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
+    poder_absoluto = es_super_admin(supervisor_actual)
     
-    if supervisor_actual.is_superuser:
+    if poder_absoluto:
         pasantes_lista = Pasante.objects.all().order_by('nombre_completo')
         queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
     else:
@@ -340,17 +397,14 @@ def generacion_reportes(request):
     filtro_pasante = request.GET.get('pasante_id')
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
-    
     pasante_seleccionado = None
     
     if filtro_pasante and filtro_pasante != 'todos':
         queryset_marcas = queryset_marcas.filter(pasante_id=filtro_pasante)
         pasante_seleccionado = pasantes_lista.filter(id=filtro_pasante).first()
         
-    if fecha_desde:
-        queryset_marcas = queryset_marcas.filter(fecha__gte=fecha_desde)
-    if fecha_hasta:
-        queryset_marcas = queryset_marcas.filter(fecha__lte=fecha_hasta)
+    if fecha_desde: queryset_marcas = queryset_marcas.filter(fecha__gte=fecha_desde)
+    if fecha_hasta: queryset_marcas = queryset_marcas.filter(fecha__lte=fecha_hasta)
         
     queryset_marcas = queryset_marcas.order_by('fecha', 'hora')
     
@@ -359,10 +413,8 @@ def generacion_reportes(request):
         clave = (m.pasante, m.fecha)
         if clave not in marcas_agrupadas:
             marcas_agrupadas[clave] = {'entrada': None, 'salida': None}
-            
         if m.tipo == 'ENTRADA' and not marcas_agrupadas[clave]['entrada']:
             marcas_agrupadas[clave]['entrada'] = m.hora.replace(second=0, microsecond=0)
-        # CORRECCIÓN: Validación en reportes oficiales
         elif m.tipo == 'SALIDA' and m.estado == 'APROBADO':
             marcas_agrupadas[clave]['salida'] = m.hora.replace(second=0, microsecond=0)
 
@@ -375,97 +427,120 @@ def generacion_reportes(request):
             dt_entrada = datetime.combine(fecha, datos['entrada'])
             dt_salida = datetime.combine(fecha, datos['salida'])
             horas_dia = (dt_salida - dt_entrada).total_seconds() / 3600.0
-            total_horas_periodo += horas_dia # Suma acumulada para el total del periodo filtrado
-            
-        reporte_final.append({
-            'pasante': pasante,
-            'fecha': fecha,
-            'entrada': datos['entrada'],
-            'salida': datos['salida'],
-            'horas_dia': round(horas_dia, 2)
-        })
+            total_horas_periodo += horas_dia
+        reporte_final.append({'pasante': pasante, 'fecha': fecha, 'entrada': datos['entrada'], 'salida': datos['salida'], 'horas_dia': round(horas_dia, 2)})
 
     reporte_final.sort(key=lambda x: x['fecha'], reverse=True)
         
     context = {
-        'pasantes': pasantes_lista,
-        'reportes_asistencia': reporte_final,
+        'pasantes': pasantes_lista, 
+        'reportes_asistencia': reporte_final, 
         'total_horas_periodo': round(total_horas_periodo, 1),
-        'mi_unidad': mi_unidad,
+        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
-        'filtro_pasante': filtro_pasante,
-        'fecha_desde': fecha_desde,
-        'fecha_hasta': fecha_hasta,
-        'pasante_seleccionado': pasante_seleccionado
+        'filtro_pasante': filtro_pasante, 'fecha_desde': fecha_desde, 'fecha_hasta': fecha_hasta, 'pasante_seleccionado': pasante_seleccionado
     }
     return render(request, 'generaci_n_de_reportes_marca_actualizada/code.html', context)
 
 
+# =========================================================
+# LÓGICA DE ALTA CORPORATIVA Y CÁLCULO DE PROGRESO
+# =========================================================
 @login_required
 def lista_pasantes(request):
     supervisor_actual = request.user
+    perfil_usuario = PerfilUsuario.objects.get(user=supervisor_actual)
+
     mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
     
+    poder_absoluto = es_super_admin(supervisor_actual)
+
+    todos_los_usuarios = []
+    areas_disponibles = []
+    if perfil_usuario.tipo == 'SUPERVISOR':
+        todos_los_usuarios = User.objects.filter(is_active=True).select_related('perfil').order_by('username')
+        
+        areas_bd = list(AreaEmpresa.objects.values_list('nombre', flat=True))
+        if areas_bd:
+            areas_disponibles = sorted(areas_bd)
+        else:
+            areas_brutas = [u.perfil.unidad for u in todos_los_usuarios if hasattr(u, 'perfil') and u.perfil.unidad]
+            areas_disponibles = sorted(list(set(areas_brutas)))
+
     if request.method == 'POST':
         ci = request.POST.get('ci')
         nombre = request.POST.get('nombre_completo')
         f_inicio = request.POST.get('fecha_inicio')
         f_fin = request.POST.get('fecha_fin')
-        horas_req = request.POST.get('horas_requeridas', 240)
+        horas_req = request.POST.get('horas_requeridas', 360)
         
+        area_asignada = mi_unidad
+        supervisor_asignado = supervisor_actual
+
+        if poder_absoluto:
+            username_digitado = request.POST.get('supervisor_username')
+            area_digitada = request.POST.get('area_asignada')
+            
+            if username_digitado:
+                try:
+                    supervisor_asignado = User.objects.get(username=username_digitado)
+                    area_asignada = area_digitada if area_digitada else (supervisor_asignado.perfil.unidad if hasattr(supervisor_asignado, 'perfil') else "Sin Área")
+                except User.DoesNotExist:
+                    messages.error(request, f"Error: No se encontró al supervisor '{username_digitado}'.")
+                    return redirect('lista_pasantes')
+
         if ci and nombre and f_inicio and f_fin:
             if Pasante.objects.filter(ci=ci).exists():
-                messages.error(request, f"Error: Ya existe un pasante registrado con el CI {ci}.")
+                messages.error(request, f"Error: Ya existe un pasante con el CI {ci}.")
             else:
                 Pasante.objects.create(
-                    ci=ci, nombre_completo=nombre, area=mi_unidad,
-                    supervisor=supervisor_actual, fecha_inicio=f_inicio,
+                    ci=ci, nombre_completo=nombre, area=area_asignada,
+                    supervisor=supervisor_asignado, fecha_inicio=f_inicio,
                     fecha_fin=f_fin, horas_requeridas=horas_req
                 )
-                messages.success(request, f"¡Pasante {nombre} guardado exitosamente!")
+                if poder_absoluto:
+                    messages.success(request, f"¡Pasante {nombre} asignado a {supervisor_asignado.username} en {area_asignada}!")
+                else:
+                    messages.success(request, f"¡Pasante {nombre} guardado exitosamente!")
             return redirect('lista_pasantes')
 
-    if supervisor_actual.is_superuser:
-        pasantes_queryset = Pasante.objects.all().order_by('nombre_completo')
+    if perfil_usuario.tipo == 'ADMINISTRADOR':
+        pasantes_queryset = Pasante.objects.all()
     else:
-        pasantes_queryset = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
-        
+        pasantes_queryset = Pasante.objects.filter(supervisor=supervisor_actual)
+    
+    # pasantes_queryset = Pasante.objects.filter(supervisor=supervisor_actual)
+
     lista_con_calculos = []
     for p in pasantes_queryset:
-        marcas = RegistroAsistencia.objects.filter(pasante=p).order_by('fecha', 'hora')
-        horas_totales_hechas = 0.0
-        marcas_por_dia = {}
+        horas_hechas_redond = calcular_horas_pasante(p)
+        print(f"DEBUG: Pasante {p.nombre_completo} - Horas Hechas: {horas_hechas_redond}")
+        horas_req_float = float(p.horas_requeridas)
+        print(f"DEBUG: Pasante {p.nombre_completo} - Horas Requeridas: {horas_req_float}")
+        horas_restantes = max(0.0, round(horas_req_float - horas_hechas_redond, 1))
+        print(f"DEBUG: Pasante {p.nombre_completo} - Horas Restantes: {horas_restantes}")
         
-        for m in marcas:
-            if m.fecha not in marcas_por_dia:
-                marcas_por_dia[m.fecha] = []
-            marcas_por_dia[m.fecha].append(m)
-        
-        for fecha_dia, lista_marcas in marcas_por_dia.items():
-            entrada = None
-            for m in lista_marcas:
-                if m.tipo == 'ENTRADA':
-                    entrada = m.hora.replace(second=0, microsecond=0)
-                elif m.tipo == 'SALIDA' and m.estado == 'APROBADO' and entrada is not None:
-                    salida_limpia = m.hora.replace(second=0, microsecond=0)
-                    dt_entrada = datetime.combine(date.today(), entrada)
-                    dt_salida = datetime.combine(date.today(), salida_limpia)
-                    horas_totales_hechas += (dt_salida - dt_entrada).total_seconds() / 3600.0
-                    entrada = None
-
-        horas_hechas_redond = round(horas_totales_hechas, 1)
-        horas_restantes = max(0.0, round(float(p.horas_requeridas) - horas_hechas_redond, 1))
+        porcentaje = 0
+        if horas_req_float > 0:
+            porcentaje = min(100, int((horas_hechas_redond / horas_req_float) * 100))
+            
+        alerta_conclusion = horas_restantes <= 30
         
         lista_con_calculos.append({
             'objeto': p,
             'horas_hechas': horas_hechas_redond,
             'horas_restantes': horas_restantes,
+            'porcentaje': porcentaje,
+            'alerta_conclusion': alerta_conclusion
         })
         
     context = {
         'pasantes_calculados': lista_con_calculos, 
-        'mi_unidad': mi_unidad,
-        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
+        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad,
+        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
+        'poder_absoluto': poder_absoluto,
+        'todos_los_usuarios': todos_los_usuarios,
+        'areas_disponibles': areas_disponibles
     }
     return render(request, 'lista_pasantes_marca_actualizada/code.html', context)
 
@@ -474,8 +549,9 @@ def lista_pasantes(request):
 def gestionar_turnos(request):
     supervisor_actual = request.user
     mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
+    poder_absoluto = es_super_admin(supervisor_actual)
     
-    if supervisor_actual.is_superuser:
+    if poder_absoluto:
         pasantes = Pasante.objects.all().order_by('nombre_completo')
     else:
         pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
@@ -504,7 +580,7 @@ def gestionar_turnos(request):
     context = {
         'pasantes': pasantes, 
         'turnos': turnos, 
-        'mi_unidad': mi_unidad,
+        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad, 
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'gestionar_turnos_marca_actualizada/code.html', context)
