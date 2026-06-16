@@ -15,26 +15,37 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator  
 from django.core.mail import send_mail
 
-# --- FUNCIONES AUXILIARES INTERNAS ---
+# ================================================================
+# 1. CONTROL DE ACCESO ESTRICTO (INQUEBRANTABLE)
+# ================================================================
+
+def tiene_acceso_al_sistema(user):
+    """ 
+    MURO DE HIERRO: Ignora al LDAP por completo.
+    Si no eres cperezb, vvedia, o no estás en el grupo autorizado, ¡no entras!
+    """
+    if user.username in ['cperezb', 'vvedia']:
+        return True
+    
+    # Acepta tanto mayúsculas como minúsculas por si acaso
+    grupos_permitidos = ['Supervisores', 'supervisores', 'RRHH', 'rrhh']
+    return user.groups.filter(name__in=grupos_permitidos).exists()
+
+def es_admin_rrhh(user):
+    """ Define quién puede ver la caja de RRHH y a toda la empresa """
+    if user.username in ['cperezb', 'vvedia']:
+        return True
+    
+    grupos_rrhh = ['RRHH', 'rrhh']
+    return user.groups.filter(name__in=grupos_rrhh).exists()
+
 def obtener_nombre_completo_ldap(user):
     nombre_completo = f"{user.first_name} {user.last_name}".strip()
     if not nombre_completo:
         nombre_completo = user.username.upper()
     return nombre_completo
 
-def es_super_admin(user):
-    """ Regla Maestra (legacy/fallback) """
-    if user.username in ['cperezb', 'vvedia', 'vvedia@comteco.com.bo']:
-        return True
-    if hasattr(user, 'perfil') and user.perfil.unidad:
-        if 'RECURSOS HUMANOS' in user.perfil.unidad.upper():
-            return True
-    if user.is_superuser:
-        return True
-    return False
-
 def calcular_horas_pasante(pasante):
-    """ Calcula las horas totales hechas por un pasante (solo registros aprobados) """
     marcas = RegistroAsistencia.objects.filter(pasante=pasante)
     horas_totales = 0.0
     marcas_por_dia = {}
@@ -58,13 +69,18 @@ def calcular_horas_pasante(pasante):
     return round(horas_totales, 1)
 
 
-# --- CARGADOR AUXILIAR ---
+# ================================================================
+# 2. VISTAS DEL SISTEMA (TODAS BLINDADAS)
+# ================================================================
+
 @login_required
 def importar_datos_csv(request):
+    if not tiene_acceso_al_sistema(request.user):
+        return render(request, 'espera_aprobacion.html')
+
     base_dir = settings.BASE_DIR
     archivos_en_raiz = os.listdir(base_dir)
     
-    # 1. IMPORTAR ÁREAS DE LA EMPRESA (ARCHIVO SIRHU)
     archivo_areas = None
     for f in archivos_en_raiz:
         if 'SIRHU' in f.upper() and f.endswith('.csv'):
@@ -83,7 +99,6 @@ def importar_datos_csv(request):
                     for fila in lector_areas:
                         if not fila or len(fila) < 3: 
                             continue
-                        
                         col_cero = str(fila[0]).strip().upper()
                         nombre_area = str(fila[2]).strip().upper()
                         
@@ -101,7 +116,6 @@ def importar_datos_csv(request):
         except Exception as e:
             return HttpResponse(f"<h3>❌ Error leyendo archivo SIRHU: {e}</h3>")
 
-    # 2. IMPORTAR ASISTENCIA ANTIGUA
     archivo_detectado = None
     for f in archivos_en_raiz:
         if f.lower() in ['datos.xls', 'datos.xlsx', 'datos.csv'] and 'sirhu' not in f.lower():
@@ -167,7 +181,7 @@ def importar_datos_csv(request):
     return HttpResponse(f"<h2>🎉 ¡Operación Exitosa!</h2><p>Se registraron {areas_creadas} nuevas áreas/departamentos desde el SIRHU.</p><p>Se cargaron {contador_marcas} marcaciones.</p><br><a href='/panel/'>Volver al Panel</a>")
 
 
-# --- REGISTRO PUBLICO DESDE MOSTRADOR ---
+# --- REGISTRO PUBLICO DESDE MOSTRADOR (Este no pide login) ---
 def registrar_asistencia(request):
     if request.method == 'POST':
         ci_digitado = request.POST.get('ci_value')
@@ -243,13 +257,13 @@ def registrar_asistencia(request):
     return render(request, 'registro_de_asistencia_pasante_marca_actualizada/code.html')
 
 
-# --- VISTA PARA APROBAR / RECHAZAR ---
 @login_required
 def decidir_horas_extra(request, marca_id, accion):
+    if not tiene_acceso_al_sistema(request.user):
+        return render(request, 'espera_aprobacion.html')
+
     marca = get_object_or_404(RegistroAsistencia, id=marca_id)
-    perfil = getattr(request.user, 'perfil', None)
-    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
-    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or request.user.is_superuser or request.user.username in ['cperezb', 'vvedia'])
+    puede_asignar = es_admin_rrhh(request.user)
     
     if puede_asignar or request.user in marca.pasante.supervisores.all():
         if accion == 'aprobar':
@@ -265,22 +279,21 @@ def decidir_horas_extra(request, marca_id, accion):
 
 @login_required
 def index_dashboard(request):
+    if not tiene_acceso_al_sistema(request.user):
+        return render(request, 'espera_aprobacion.html')
     return redirect('panel_supervisor')
 
 
 @login_required
 def panel_supervisor(request):
-    supervisor_actual = request.user
-    
-    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
-        if not supervisor_actual.is_superuser:
-            return render(request, 'espera_aprobacion.html')
+    if not tiene_acceso_al_sistema(request.user):
+        return render(request, 'espera_aprobacion.html')
 
-    perfil = getattr(supervisor_actual, 'perfil', None)
-    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
-    mi_unidad = perfil.unidad if perfil else "Sin Área"
+    supervisor_actual = request.user
+    puede_asignar = es_admin_rrhh(supervisor_actual)
     
-    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
+    perfil = getattr(supervisor_actual, 'perfil', None)
+    mi_unidad = perfil.unidad if perfil else "Sin Área"
     
     if puede_asignar:
         pasantes = Pasante.objects.all()
@@ -329,17 +342,13 @@ def panel_supervisor(request):
 
 @login_required
 def listado_detallado(request):
-    supervisor_actual = request.user
-    
-    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
-        if not supervisor_actual.is_superuser:
-            return render(request, 'espera_aprobacion.html')
+    if not tiene_acceso_al_sistema(request.user):
+        return render(request, 'espera_aprobacion.html')
 
+    supervisor_actual = request.user
+    puede_asignar = es_admin_rrhh(supervisor_actual)
     perfil = getattr(supervisor_actual, 'perfil', None)
-    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
     mi_unidad = perfil.unidad if perfil else "Sin Área"
-    
-    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
     
     if puede_asignar:
         pasantes_queryset = Pasante.objects.all().order_by('nombre_completo')
@@ -405,17 +414,13 @@ def listado_detallado(request):
 
 @login_required
 def generacion_reportes(request):
-    supervisor_actual = request.user
-    
-    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
-        if not supervisor_actual.is_superuser:
-            return render(request, 'espera_aprobacion.html')
+    if not tiene_acceso_al_sistema(request.user):
+        return render(request, 'espera_aprobacion.html')
 
+    supervisor_actual = request.user
+    puede_asignar = es_admin_rrhh(supervisor_actual)
     perfil = getattr(supervisor_actual, 'perfil', None)
-    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
     mi_unidad = perfil.unidad if perfil else "Sin Área"
-    
-    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
     
     if puede_asignar:
         pasantes_lista = Pasante.objects.all().order_by('nombre_completo')
@@ -473,23 +478,15 @@ def generacion_reportes(request):
     return render(request, 'generaci_n_de_reportes_marca_actualizada/code.html', context)
 
 
-# =========================================================
-# LÓGICA DE ALTA CORPORATIVA Y CÁLCULO DE PROGRESO
-# =========================================================
 @login_required
 def lista_pasantes(request):
-    supervisor_actual = request.user
-    
-    # COMPROBACIÓN DE PANTALLA AMIGABLE
-    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
-        if not supervisor_actual.is_superuser:
-            return render(request, 'espera_aprobacion.html')
+    if not tiene_acceso_al_sistema(request.user):
+        return render(request, 'espera_aprobacion.html')
 
+    supervisor_actual = request.user
+    puede_asignar = es_admin_rrhh(supervisor_actual)
     perfil = getattr(supervisor_actual, 'perfil', None)
-    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
     mi_unidad = perfil.unidad if perfil else "Sin Área"
-    
-    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
 
     todos_los_usuarios = []
     areas_disponibles = []
@@ -581,17 +578,13 @@ def lista_pasantes(request):
 
 @login_required
 def gestionar_turnos(request):
-    supervisor_actual = request.user
-    
-    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
-        if not supervisor_actual.is_superuser:
-            return render(request, 'espera_aprobacion.html')
+    if not tiene_acceso_al_sistema(request.user):
+        return render(request, 'espera_aprobacion.html')
 
+    supervisor_actual = request.user
+    puede_asignar = es_admin_rrhh(supervisor_actual)
     perfil = getattr(supervisor_actual, 'perfil', None)
-    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
     mi_unidad = perfil.unidad if perfil else "Sin Área"
-    
-    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
     
     if puede_asignar:
         pasantes = Pasante.objects.all().order_by('nombre_completo')
