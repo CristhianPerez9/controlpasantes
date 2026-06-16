@@ -5,14 +5,15 @@ class Pasante(models.Model):
     ci = models.CharField(max_length=20, unique=True)
     nombre_completo = models.CharField(max_length=150)
     area = models.CharField(max_length=100)
-    supervisor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='pasantes_a_cargo')
+    
+    # Campo actualizado para soportar MÚLTIPLES supervisores
+    supervisores = models.ManyToManyField(User, related_name='pasantes_a_cargo', blank=True)
+    
     fecha_nacimiento = models.DateField(null=True, blank=True)
     fecha_inicio = models.DateField(null=True, blank=True)
     fecha_fin = models.DateField(null=True, blank=True)
     horas_requeridas = models.IntegerField(default=240)
     estado = models.BooleanField(default=True, null=True, blank=True)
-    
-    # NUEVO CAMPO AÑADIDO:
     nota_final = models.IntegerField(null=True, blank=True, verbose_name="Nota Final")
 
     def __str__(self):
@@ -25,7 +26,6 @@ class RegistroAsistencia(models.Model):
     ]
     
     estado = models.CharField(max_length=20, default='APROBADO')
-    
     pasante = models.ForeignKey(Pasante, on_delete=models.CASCADE, related_name='asistencias')
     fecha = models.DateField(auto_now_add=True)
     hora = models.TimeField(auto_now_add=True)
@@ -60,9 +60,6 @@ class TurnoPasante(models.Model):
     def __str__(self):
         return f"{self.pasante.nombre_completo} - {self.get_dia_display()} ({self.turno})"
 
-# ==========================================
-# NUEVO MODELO: DIRECTORIO DE ÁREAS (SIRHU)
-# ==========================================
 class AreaEmpresa(models.Model):
     nombre = models.CharField(max_length=200, unique=True)
 
