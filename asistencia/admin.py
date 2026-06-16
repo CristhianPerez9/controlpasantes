@@ -1,16 +1,22 @@
 from django.contrib import admin
-from .models import Pasante, RegistroAsistencia
+from .models import Pasante, RegistroAsistencia, TurnoPasante, AreaEmpresa
 
 @admin.register(Pasante)
 class PasanteAdmin(admin.ModelAdmin):
     # Columnas que se mostrarán en la tabla de pasantes del /admin/
-    list_display = ('ci', 'nombre_completo', 'area', 'supervisor', 'fecha_nacimiento')
+    # Usamos 'obtener_supervisores' en lugar del campo viejo 'supervisor'
+    list_display = ('ci', 'nombre_completo', 'area', 'obtener_supervisores', 'fecha_nacimiento')
     
     # Buscador por Carnet de Identidad o por Nombre Completo
     search_fields = ('ci', 'nombre_completo', 'area')
     
-    # Filtro lateral rápido por departamento o supervisor
-    list_filter = ('area', 'supervisor')
+    # Filtro lateral rápido por departamento o supervisor (actualizado al plural)
+    list_filter = ('area', 'supervisores')
+
+    # Función auxiliar para mostrar múltiples supervisores separados por coma en la grilla
+    def obtener_supervisores(self, obj):
+        return ", ".join([f"{s.first_name} {s.last_name}".strip() or s.username for s in obj.supervisores.all()])
+    obtener_supervisores.short_description = 'Supervisores'
 
 @admin.register(RegistroAsistencia)
 class RegistroAsistenciaAdmin(admin.ModelAdmin):
@@ -31,3 +37,7 @@ class RegistroAsistenciaAdmin(admin.ModelAdmin):
     def get_pasante_ci(self, obj):
         return obj.pasante.ci
     get_pasante_ci.short_description = 'CI'
+
+# Registramos también los otros modelos del sistema
+admin.site.register(TurnoPasante)
+admin.site.register(AreaEmpresa)

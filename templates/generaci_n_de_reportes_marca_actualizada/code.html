@@ -126,146 +126,148 @@
                 </div>
 
                 <div class="overflow-x-auto w-full pb-4">
-                    <div class="min-w-[800px]"> {% for r in reportes_asistencia %}
-                            {% if forloop.first or forloop.counter0 == 15 or forloop.counter0 == 40 or forloop.counter0 == 65 or forloop.counter0 == 90 or forloop.counter0 == 115 or forloop.counter0 == 140 or forloop.counter0 == 165 or forloop.counter0 == 190 or forloop.counter0 == 215 or forloop.counter0 == 240 %}
-                            <div class="pagina-a4 bg-white mx-auto w-full max-w-4xl shadow-xl shadow-slate-300 border border-slate-200 p-8 md:p-12 relative flex flex-col mb-10 min-h-[1056px]">
-                                
-                                {% if forloop.first %}
-                                    <div class="flex justify-between items-center pb-6 mb-8 print-reduce-mb" style="border-bottom: 3px solid #cc0000;">
-                                        <div class="flex items-center gap-5">
-                                            <img src="{% static 'logo.png' %}" alt="COMTECO Logo" class="h-12 md:h-16 w-auto object-contain">
-                                            <div>
-                                                <h2 class="text-xl md:text-2xl font-black tracking-tight leading-none" style="color: #cc0000;">COMTECO R.L.</h2>
-                                                <p class="text-[9px] md:text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Dpto. de Recursos Humanos</p>
+                    <div class="min-w-[800px]"> 
+                        {% if reportes_asistencia %}
+                            {% for r in reportes_asistencia %}
+                                {% if forloop.first or forloop.counter0 == 15 or forloop.counter0 == 40 or forloop.counter0 == 65 or forloop.counter0 == 90 or forloop.counter0 == 115 or forloop.counter0 == 140 or forloop.counter0 == 165 or forloop.counter0 == 190 or forloop.counter0 == 215 or forloop.counter0 == 240 %}
+                                <div class="pagina-a4 bg-white mx-auto w-full max-w-4xl shadow-xl shadow-slate-300 border border-slate-200 p-8 md:p-12 relative flex flex-col mb-10 min-h-[1056px]">
+                                    
+                                    {% if forloop.first %}
+                                        <div class="flex justify-between items-center pb-6 mb-8 print-reduce-mb" style="border-bottom: 3px solid #cc0000;">
+                                            <div class="flex items-center gap-5">
+                                                <img src="{% static 'logo.png' %}" alt="COMTECO Logo" class="h-12 md:h-16 w-auto object-contain">
+                                                <div>
+                                                    <h2 class="text-xl md:text-2xl font-black tracking-tight leading-none" style="color: #cc0000;">COMTECO R.L.</h2>
+                                                    <p class="text-[9px] md:text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">Dpto. de Recursos Humanos</p>
+                                                </div>
+                                            </div>
+                                            <div class="text-right bg-slate-50 p-2 md:p-3 rounded-lg border border-slate-100">
+                                                <p class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase">FECHA DE EMISIÓN</p>
+                                                <p class="text-xs md:text-sm font-black text-slate-800">{% now "d/m/Y" %}</p>
                                             </div>
                                         </div>
-                                        <div class="text-right bg-slate-50 p-2 md:p-3 rounded-lg border border-slate-100">
-                                            <p class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase">FECHA DE EMISIÓN</p>
-                                            <p class="text-xs md:text-sm font-black text-slate-800">{% now "d/m/Y" %}</p>
+
+                                        <div class="text-center mb-6 md:mb-8 print-reduce-mb">
+                                            <h3 class="text-lg md:text-2xl font-black text-slate-800 tracking-wide uppercase inline-block pb-1">Reporte Oficial de Asistencia</h3>
+                                            <div class="w-16 h-1 mx-auto mt-2 mb-2" style="background-color: #cc0000;"></div>
+                                            <p class="text-xs md:text-sm text-slate-500 font-medium bg-slate-50 inline-block px-3 md:px-4 py-1 md:py-1.5 rounded-full border border-slate-100">
+                                                {% if fecha_desde and fecha_hasta %}
+                                                    Periodo auditado: <span class="font-bold text-slate-700">{{ fecha_desde }}</span> al <span class="font-bold text-slate-700">{{ fecha_hasta }}</span>
+                                                {% else %}
+                                                    Historial General Completo
+                                                {% endif %}
+                                            </p>
                                         </div>
-                                    </div>
 
-                                    <div class="text-center mb-6 md:mb-8 print-reduce-mb">
-                                        <h3 class="text-lg md:text-2xl font-black text-slate-800 tracking-wide uppercase inline-block pb-1">Reporte Oficial de Asistencia</h3>
-                                        <div class="w-16 h-1 mx-auto mt-2 mb-2" style="background-color: #cc0000;"></div>
-                                        <p class="text-xs md:text-sm text-slate-500 font-medium bg-slate-50 inline-block px-3 md:px-4 py-1 md:py-1.5 rounded-full border border-slate-100">
-                                            {% if fecha_desde and fecha_hasta %}
-                                                Periodo auditado: <span class="font-bold text-slate-700">{{ fecha_desde }}</span> al <span class="font-bold text-slate-700">{{ fecha_hasta }}</span>
-                                            {% else %}
-                                                Historial General Completo
-                                            {% endif %}
-                                        </p>
-                                    </div>
-
-                                    <div class="mb-6 md:mb-8 print-reduce-mb">
-                                        <h4 class="text-xs md:text-sm font-black uppercase tracking-wider mb-2 md:mb-3 flex items-center gap-2" style="color: #cc0000;">
-                                            <i class="fa-solid fa-chart-pie"></i> Resumen Ejecutivo
-                                        </h4>
-                                        <div class="grid grid-cols-3 border rounded-xl p-3 md:p-5 divide-x divide-slate-200 text-center shadow-sm" style="background-color: rgba(204, 0, 0, 0.05); border-color: rgba(204, 0, 0, 0.2);">
-                                            <div>
-                                                <p class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Marcaciones</p>
-                                                <p class="text-lg md:text-2xl font-black text-slate-800">{{ reportes_asistencia|length }}</p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Nota Final</p>
-                                                <p class="text-lg md:text-2xl font-black text-emerald-600">
-                                                    {% if pasante_seleccionado and pasante_seleccionado.nota_final %}
-                                                        {{ pasante_seleccionado.nota_final }}<span class="text-xs md:text-sm font-bold text-slate-400">/100</span>
-                                                    {% elif pasante_seleccionado and not pasante_seleccionado.nota_final %}
-                                                        <span class="text-xs md:text-base text-slate-400 font-bold uppercase">Sin Asignar</span>
-                                                    {% else %}
-                                                        <span class="text-xs md:text-base text-slate-400 font-bold uppercase">Varias</span>
-                                                    {% endif %}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Total Horas</p>
-                                                <p class="text-lg md:text-2xl font-black" style="color: #cc0000;">{{ total_horas_periodo }} <span class="text-xs md:text-sm font-bold text-slate-500">hrs</span></p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% else %}
-                                    <div class="flex justify-between items-center pb-4 mb-6 print-reduce-mb" style="border-bottom: 2px solid #cc0000;">
-                                        <div class="flex items-center gap-4">
-                                            <img src="{% static 'logo.png' %}" alt="COMTECO" class="h-8 md:h-10 w-auto object-contain">
-                                            <h3 class="text-lg md:text-xl font-black tracking-wide uppercase" style="color: #cc0000;">Reporte de Asistencia <span class="text-xs md:text-sm font-medium text-slate-500 capitalize"> - Continuación</span></h3>
-                                        </div>
-                                    </div>
-                                {% endif %}
-
-                                <div class="flex-1">
-                                    <h4 class="text-xs md:text-sm font-black uppercase tracking-wider mb-2 md:mb-3 flex items-center gap-2" style="color: #cc0000;">
-                                        <i class="fa-solid fa-list"></i> Desglose de Registros
-                                    </h4>
-                                    <div class="border border-slate-200 rounded-xl overflow-hidden print:border-none print:rounded-none">
-                                        <table class="w-full text-left text-[10px] md:text-xs border-collapse">
-                                            <thead>
-                                                <tr class="bg-slate-100 font-bold text-slate-600 uppercase text-[8px] md:text-[10px] tracking-wider border-b-2 border-slate-200">
-                                                    <th class="py-2 md:py-3.5 px-2 md:px-4">Nombre Completo</th>
-                                                    <th class="py-2 md:py-3.5 px-2 md:px-4">Fecha</th>
-                                                    <th class="py-2 md:py-3.5 px-2 md:px-4 text-center">Hora Entrada</th>
-                                                    <th class="py-2 md:py-3.5 px-2 md:px-4 text-center">Hora Salida</th>
-                                                    <th class="py-2 md:py-3.5 px-2 md:px-4 text-center bg-slate-50 border-l border-slate-200">Cálculo Día</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
-                            {% endif %}
-
-                                                <tr class="{% cycle 'bg-white' 'bg-slate-50/50' %} print:border-b print:border-slate-100">
-                                                    <td class="py-2 md:py-2.5 px-2 md:px-4 font-bold text-slate-800">{{ r.pasante.nombre_completo }}</td>
-                                                    <td class="py-2 md:py-2.5 px-2 md:px-4 text-slate-500">{{ r.fecha|date:"d/m/Y" }}</td>
-                                                    <td class="py-2 md:py-2.5 px-2 md:px-4 text-center">{% if r.entrada %}{{ r.entrada|time:"H:i" }}{% else %}-{% endif %}</td>
-                                                    <td class="py-2 md:py-2.5 px-2 md:px-4 text-center">{% if r.salida %}{{ r.salida|time:"H:i" }}{% else %}-{% endif %}</td>
-                                                    <td class="py-2 md:py-2.5 px-2 md:px-4 text-center font-bold border-l border-slate-100">
-                                                        {% if r.horas_dia > 0 %}
-                                                            {% if r.horas_dia < 4.0 %}
-                                                                <span style="color: #cc0000;">{{ r.horas_dia }} h</span>
-                                                            {% else %}
-                                                                <span style="color: #1e293b;">{{ r.horas_dia }} h</span>
-                                                            {% endif %}
+                                        <div class="mb-6 md:mb-8 print-reduce-mb">
+                                            <h4 class="text-xs md:text-sm font-black uppercase tracking-wider mb-2 md:mb-3 flex items-center gap-2" style="color: #cc0000;">
+                                                <i class="fa-solid fa-chart-pie"></i> Resumen Ejecutivo
+                                            </h4>
+                                            <div class="grid grid-cols-3 border rounded-xl p-3 md:p-5 divide-x divide-slate-200 text-center shadow-sm" style="background-color: rgba(204, 0, 0, 0.05); border-color: rgba(204, 0, 0, 0.2);">
+                                                <div>
+                                                    <p class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Marcaciones</p>
+                                                    <p class="text-lg md:text-2xl font-black text-slate-800">{{ reportes_asistencia|length }}</p>
+                                                </div>
+                                                <div>
+                                                    <p class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Nota Final</p>
+                                                    <p class="text-lg md:text-2xl font-black text-emerald-600">
+                                                        {% if pasante_seleccionado and pasante_seleccionado.nota_final %}
+                                                            {{ pasante_seleccionado.nota_final }}<span class="text-xs md:text-sm font-bold text-slate-400">/100</span>
+                                                        {% elif pasante_seleccionado and not pasante_seleccionado.nota_final %}
+                                                            <span class="text-xs md:text-base text-slate-400 font-bold uppercase">Sin Asignar</span>
                                                         {% else %}
-                                                            <span class="text-amber-500">Incompleto</span>
+                                                            <span class="text-xs md:text-base text-slate-400 font-bold uppercase">Varias</span>
                                                         {% endif %}
-                                                    </td>
-                                                </tr>
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Total Horas</p>
+                                                    <p class="text-lg md:text-2xl font-black" style="color: #cc0000;">{{ total_horas_periodo }} <span class="text-xs md:text-sm font-bold text-slate-500">hrs</span></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="flex justify-between items-center pb-4 mb-6 print-reduce-mb" style="border-bottom: 2px solid #cc0000;">
+                                            <div class="flex items-center gap-4">
+                                                <img src="{% static 'logo.png' %}" alt="COMTECO" class="h-8 md:h-10 w-auto object-contain">
+                                                <h3 class="text-lg md:text-xl font-black tracking-wide uppercase" style="color: #cc0000;">Reporte de Asistencia <span class="text-xs md:text-sm font-medium text-slate-500 capitalize"> - Continuación</span></h3>
+                                            </div>
+                                        </div>
+                                    {% endif %}
 
-                            {% if forloop.counter == 15 or forloop.counter == 40 or forloop.counter == 65 or forloop.counter == 90 or forloop.counter == 115 or forloop.counter == 140 or forloop.counter == 165 or forloop.counter == 190 or forloop.counter == 215 or forloop.counter == 240 or forloop.last %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                {% if forloop.last %}
-                                <div class="zona-firmas mt-8">
-                                    <div class="grid grid-cols-3 gap-4 md:gap-8">
-                                        <div class="text-center">
-                                            <div class="border-b border-slate-400 mb-2 w-3/4 mx-auto"></div>
-                                            <p class="text-[7px] md:text-[9px] font-bold text-slate-600 uppercase tracking-widest">Firma Pasante</p>
-                                        </div>
-                                        <div class="text-center">
-                                            <div class="border-b border-slate-400 mb-2 w-3/4 mx-auto"></div>
-                                            <p class="text-[7px] md:text-[9px] font-bold text-slate-600 uppercase tracking-widest">Firma Supervisor</p>
-                                            <p class="text-[6px] md:text-[8px] font-bold text-slate-500 mt-1 uppercase">{{ supervisor_nombre_completo }}</p>
-                                        </div>
-                                        <div class="text-center">
-                                            <div class="border-b border-slate-400 mb-2 w-3/4 mx-auto"></div>
-                                            <p class="text-[7px] md:text-[9px] font-bold text-slate-600 uppercase tracking-widest">Sello Institucional COMTECO</p>
-                                        </div>
-                                    </div>
-                                    <div class="text-center mt-6 text-[6px] md:text-[8px] text-slate-400 font-semibold tracking-widest uppercase pb-2">
-                                        Documento Generado por Plataforma Web - COMTECO R.L.
-                                    </div>
-                                </div>
+                                    <div class="flex-1">
+                                        <h4 class="text-xs md:text-sm font-black uppercase tracking-wider mb-2 md:mb-3 flex items-center gap-2" style="color: #cc0000;">
+                                            <i class="fa-solid fa-list"></i> Desglose de Registros
+                                        </h4>
+                                        <div class="border border-slate-200 rounded-xl overflow-hidden print:border-none print:rounded-none">
+                                            <table class="w-full text-left text-[10px] md:text-xs border-collapse">
+                                                <thead>
+                                                    <tr class="bg-slate-100 font-bold text-slate-600 uppercase text-[8px] md:text-[10px] tracking-wider border-b-2 border-slate-200">
+                                                        <th class="py-2 md:py-3.5 px-2 md:px-4">Nombre Completo</th>
+                                                        <th class="py-2 md:py-3.5 px-2 md:px-4">Fecha</th>
+                                                        <th class="py-2 md:py-3.5 px-2 md:px-4 text-center">Hora Entrada</th>
+                                                        <th class="py-2 md:py-3.5 px-2 md:px-4 text-center">Hora Salida</th>
+                                                        <th class="py-2 md:py-3.5 px-2 md:px-4 text-center bg-slate-50 border-l border-slate-200">Cálculo Día</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
                                 {% endif %}
 
-                            </div> {% endif %}
-                            
-                        {% empty %}
+                                                    <tr class="{% cycle 'bg-white' 'bg-slate-50/50' %} print:border-b print:border-slate-100">
+                                                        <td class="py-2 md:py-2.5 px-2 md:px-4 font-bold text-slate-800">{{ r.pasante.nombre_completo }}</td>
+                                                        <td class="py-2 md:py-2.5 px-2 md:px-4 text-slate-500">{{ r.fecha|date:"d/m/Y" }}</td>
+                                                        <td class="py-2 md:py-2.5 px-2 md:px-4 text-center">{% if r.entrada %}{{ r.entrada|time:"H:i" }}{% else %}-{% endif %}</td>
+                                                        <td class="py-2 md:py-2.5 px-2 md:px-4 text-center">{% if r.salida %}{{ r.salida|time:"H:i" }}{% else %}-{% endif %}</td>
+                                                        <td class="py-2 md:py-2.5 px-2 md:px-4 text-center font-bold border-l border-slate-100">
+                                                            {% if r.horas_dia > 0 %}
+                                                                {% if r.horas_dia < 4.0 %}
+                                                                    <span style="color: #cc0000;">{{ r.horas_dia }} h</span>
+                                                                {% else %}
+                                                                    <span style="color: #1e293b;">{{ r.horas_dia }} h</span>
+                                                                {% endif %}
+                                                            {% else %}
+                                                                <span class="text-amber-500">Incompleto</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+
+                                {% if forloop.counter == 15 or forloop.counter == 40 or forloop.counter == 65 or forloop.counter == 90 or forloop.counter == 115 or forloop.counter == 140 or forloop.counter == 165 or forloop.counter == 190 or forloop.counter == 215 or forloop.counter == 240 or forloop.last %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {% if forloop.last %}
+                                    <div class="zona-firmas mt-8">
+                                        <div class="grid grid-cols-3 gap-4 md:gap-8">
+                                            <div class="text-center">
+                                                <div class="border-b border-slate-400 mb-2 w-3/4 mx-auto"></div>
+                                                <p class="text-[7px] md:text-[9px] font-bold text-slate-600 uppercase tracking-widest">Firma Pasante</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <div class="border-b border-slate-400 mb-2 w-3/4 mx-auto"></div>
+                                                <p class="text-[7px] md:text-[9px] font-bold text-slate-600 uppercase tracking-widest">Firma Supervisor</p>
+                                                <p class="text-[6px] md:text-[8px] font-bold text-slate-500 mt-1 uppercase">{{ supervisor_nombre_completo }}</p>
+                                            </div>
+                                            <div class="text-center">
+                                                <div class="border-b border-slate-400 mb-2 w-3/4 mx-auto"></div>
+                                                <p class="text-[7px] md:text-[9px] font-bold text-slate-600 uppercase tracking-widest">Sello Institucional COMTECO</p>
+                                            </div>
+                                        </div>
+                                        <div class="text-center mt-6 text-[6px] md:text-[8px] text-slate-400 font-semibold tracking-widest uppercase pb-2">
+                                            Documento Generado por Plataforma Web - COMTECO R.L.
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                </div> {% endif %}
+                            {% endfor %}
+                        {% else %}
                             <div class="bg-white mx-auto w-full max-w-4xl shadow-xl shadow-slate-300 border border-slate-200 p-8 md:p-12 min-h-[400px] md:min-h-[800px] flex flex-col justify-center items-center">
                                 <i class="fa-solid fa-folder-open text-4xl md:text-5xl mb-4 text-slate-200"></i>
                                 <p class="text-slate-400 text-sm md:text-lg font-semibold text-center">Seleccione un filtro para detallar registros.</p>
                             </div>
-                        {% endfor %}
+                        {% endif %}
                     </div>
                 </div>
             </div>

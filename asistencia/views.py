@@ -23,7 +23,7 @@ def obtener_nombre_completo_ldap(user):
     return nombre_completo
 
 def es_super_admin(user):
-    """ Regla Maestra: Define quién tiene el poder absoluto en el sistema corporativo """
+    """ Regla Maestra (legacy/fallback) """
     if user.username in ['cperezb', 'vvedia', 'vvedia@comteco.com.bo']:
         return True
     if hasattr(user, 'perfil') and user.perfil.unidad:
@@ -38,7 +38,7 @@ def calcular_horas_pasante(pasante):
     marcas = RegistroAsistencia.objects.filter(pasante=pasante)
     horas_totales = 0.0
     marcas_por_dia = {}
-    print(f"DEBUG: Calculando horas para {pasante.nombre_completo} - Total marcas: {marcas.count()}")
+    
     for m in marcas:
         if m.fecha not in marcas_por_dia:
             marcas_por_dia[m.fecha] = []
@@ -58,7 +58,7 @@ def calcular_horas_pasante(pasante):
     return round(horas_totales, 1)
 
 
-# --- CARGADOR AUXILIAR (A PRUEBA DE DUPLICADOS Y CABECERAS) ---
+# --- CARGADOR AUXILIAR ---
 @login_required
 def importar_datos_csv(request):
     base_dir = settings.BASE_DIR
@@ -77,24 +77,19 @@ def importar_datos_csv(request):
             with open(archivo_areas, 'r', encoding='utf-8-sig', errors='ignore') as f:
                 contenido_areas = f.read().splitlines()
                 if contenido_areas:
-                    # Detectar separador (coma o punto y coma) dinámicamente
                     sep = ';' if ';' in contenido_areas[0] or (len(contenido_areas) > 1 and ';' in contenido_areas[1]) else ','
                     lector_areas = csv.reader(contenido_areas, delimiter=sep)
                     
                     for fila in lector_areas:
-                        # Saltar filas vacías o incompletas
                         if not fila or len(fila) < 3: 
                             continue
                         
                         col_cero = str(fila[0]).strip().upper()
-                        # Limpieza extrema: quitar espacios y convertir a mayúsculas
                         nombre_area = str(fila[2]).strip().upper()
                         
-                        # IGNORAR CUALQUIER CABECERA
                         if 'CÓDIGO' in col_cero or 'SIRHU' in col_cero or nombre_area == 'DESCRIPCIÓN':
                             continue
                         
-                        # Guardar área limpia manejando error de duplicidad
                         if nombre_area:
                             try:
                                 obj = AreaEmpresa.objects.filter(nombre=nombre_area).first()
@@ -102,7 +97,7 @@ def importar_datos_csv(request):
                                     AreaEmpresa.objects.create(nombre=nombre_area)
                                     areas_creadas += 1
                             except Exception:
-                                pass # Ignorar si la base de datos detecta una colisión y seguir con el archivo
+                                pass
         except Exception as e:
             return HttpResponse(f"<h3>❌ Error leyendo archivo SIRHU: {e}</h3>")
 
@@ -125,11 +120,10 @@ def importar_datos_csv(request):
         for nombre in columnas_excel.keys():
             obj, creado = Pasante.objects.get_or_create(
                 ci=f"CI-{nombre.upper()}",
-                defaults={'nombre_completo': nombre, 'area': 'GERENCIA DE TECNOLOGIAS DE INFORMACION', 'supervisor': user_supervisor, 'horas_requeridas': 360}
+                defaults={'nombre_completo': nombre, 'area': 'GERENCIA DE TECNOLOGIAS DE INFORMACION', 'horas_requeridas': 360}
             )
-            if not creado:
-                obj.supervisor = user_supervisor
-                obj.save()
+            obj.supervisores.add(user_supervisor)
+            obj.save()
             pasantes_db[nombre] = obj
 
         try:
@@ -203,29 +197,39 @@ def registrar_asistencia(request):
                     
                 nueva_marca = RegistroAsistencia.objects.create(pasante=pasante, tipo='SALIDA', estado=estado_registro)
                 
-                correo_supervisor = pasante.supervisor.email if pasante.supervisor.email else f"{pasante.supervisor.username}@comteco.com.bo"
+                supervisores_lista = pasante.supervisores.all()
+                correos = [s.email if s.email else f"{s.username}@comteco.com.bo" for s in supervisores_lista]
                 
-                if estado_registro == 'PENDIENTE':
-                    asunto = f"⚠️ Solicitud de Horas Extra Pendiente - {pasante.nombre_completo}"
-                    cuerpo = f"Estimado(a) {obtener_nombre_completo_ldap(pasante.supervisor)},\n\n" \
-                             f"El pasante {pasante.nombre_completo} registró una SALIDA extraordinaria a las {nueva_marca.hora.strftime('%H:%M')}.\n" \
-                             f"Quedó PENDIENTE de aprobación en el Panel de Control.\n\nSistema TI COMTECO."
-                    send_mail(asunto, cuerpo, 'asistencia.pasantes@comteco.com.bo', [correo_supervisor], fail_silently=True)
-                    messages.warning(request, f"Salida registrada. Al exceder las 16:15 se guardó como pendiente de aprobación por su supervisor.")
-                else:
-                    messages.success(request, f"¡Marca de SALIDA registrada con éxito para {pasante.nombre_completo}!")
+                if correos:
+                    primer_sup = supervisores_lista.first()
+                    nombre_sup = obtener_nombre_completo_ldap(primer_sup)
                     
-                horas_hechas = calcular_horas_pasante(pasante)
-                horas_restantes = float(pasante.horas_requeridas) - horas_hechas
-                
-                if 24 <= horas_restantes <= 30:
-                    asunto_fin = f"🎓 AVISO: Conclusión de Pasantía Próxima - {pasante.nombre_completo}"
-                    cuerpo_fin = f"Estimado(a) {obtener_nombre_completo_ldap(pasante.supervisor)},\n\n" \
-                                 f"Le informamos que el pasante {pasante.nombre_completo} está en su semana final de pasantía.\n" \
-                                 f"Total requerido: {pasante.horas_requeridas} hrs\n" \
-                                 f"Horas restantes aproximadas: {round(horas_restantes, 1)} hrs.\n\n" \
-                                 f"Por favor, prepare la evaluación de desempeño correspondiente con RRHH.\n\nSistema TI COMTECO."
-                    send_mail(asunto_fin, cuerpo_fin, 'asistencia.pasantes@comteco.com.bo', [correo_supervisor], fail_silently=True)
+                    if estado_registro == 'PENDIENTE':
+                        asunto = f"⚠️ Solicitud de Horas Extra Pendiente - {pasante.nombre_completo}"
+                        cuerpo = f"Estimado(a) {nombre_sup},\n\n" \
+                                 f"El pasante {pasante.nombre_completo} registró una SALIDA extraordinaria a las {nueva_marca.hora.strftime('%H:%M')}.\n" \
+                                 f"Quedó PENDIENTE de aprobación en el Panel de Control.\n\nSistema TI COMTECO."
+                        send_mail(asunto, cuerpo, 'asistencia.pasantes@comteco.com.bo', correos, fail_silently=True)
+                        messages.warning(request, f"Salida registrada. Al exceder las 16:15 se guardó como pendiente de aprobación por su supervisor.")
+                    else:
+                        messages.success(request, f"¡Marca de SALIDA registrada con éxito para {pasante.nombre_completo}!")
+                        
+                    horas_hechas = calcular_horas_pasante(pasante)
+                    horas_restantes = float(pasante.horas_requeridas) - horas_hechas
+                    
+                    if 24 <= horas_restantes <= 30:
+                        asunto_fin = f"🎓 AVISO: Conclusión de Pasantía Próxima - {pasante.nombre_completo}"
+                        cuerpo_fin = f"Estimado(a) {nombre_sup},\n\n" \
+                                     f"Le informamos que el pasante {pasante.nombre_completo} está en su semana final de pasantía.\n" \
+                                     f"Total requerido: {pasante.horas_requeridas} hrs\n" \
+                                     f"Horas restantes aproximadas: {round(horas_restantes, 1)} hrs.\n\n" \
+                                     f"Por favor, prepare la evaluación de desempeño correspondiente con RRHH.\n\nSistema TI COMTECO."
+                        send_mail(asunto_fin, cuerpo_fin, 'asistencia.pasantes@comteco.com.bo', correos, fail_silently=True)
+                else:
+                    if estado_registro == 'PENDIENTE':
+                        messages.warning(request, f"Salida registrada fuera de horario regular. Pendiente de aprobación.")
+                    else:
+                        messages.success(request, f"¡Marca de SALIDA registrada con éxito para {pasante.nombre_completo}!")
 
             else:
                 messages.error(request, f"Atención {pasante.nombre_completo}: Ya completaste tus marcaciones por hoy.")
@@ -243,9 +247,11 @@ def registrar_asistencia(request):
 @login_required
 def decidir_horas_extra(request, marca_id, accion):
     marca = get_object_or_404(RegistroAsistencia, id=marca_id)
-    poder_absoluto = es_super_admin(request.user)
+    perfil = getattr(request.user, 'perfil', None)
+    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
+    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or request.user.is_superuser or request.user.username in ['cperezb', 'vvedia'])
     
-    if poder_absoluto or marca.pasante.supervisor == request.user:
+    if puede_asignar or request.user in marca.pasante.supervisores.all():
         if accion == 'aprobar':
             marca.estado = 'APROBADO'
             marca.save()
@@ -265,17 +271,25 @@ def index_dashboard(request):
 @login_required
 def panel_supervisor(request):
     supervisor_actual = request.user
-    mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
-    poder_absoluto = es_super_admin(supervisor_actual)
     
-    if poder_absoluto:
+    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
+        if not supervisor_actual.is_superuser:
+            return render(request, 'espera_aprobacion.html')
+
+    perfil = getattr(supervisor_actual, 'perfil', None)
+    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
+    mi_unidad = perfil.unidad if perfil else "Sin Área"
+    
+    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
+    
+    if puede_asignar:
         pasantes = Pasante.objects.all()
         asistencias = RegistroAsistencia.objects.filter(fecha=date.today()).select_related('pasante').order_by('-hora')
         pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
     else:
-        pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad))
+        pasantes = Pasante.objects.filter(supervisores=supervisor_actual)
         asistencias = RegistroAsistencia.objects.filter(pasante__in=pasantes, fecha=date.today()).select_related('pasante').order_by('-hora')
-        pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE', pasante__supervisor=supervisor_actual).select_related('pasante').order_by('-fecha', '-hora')
+        pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE', pasante__supervisores=supervisor_actual).select_related('pasante').order_by('-fecha', '-hora').distinct()
 
     horas_hoy = 0.0
     alertas_tardanza = 0
@@ -305,7 +319,7 @@ def panel_supervisor(request):
         'pasantes': pasantes, 
         'asistencias': asistencias, 
         'asistencias_pendientes': pendientes,
-        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad,
+        'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
         'horas_hoy': round(horas_hoy, 1),
         'alertas_tardanza': alertas_tardanza,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
@@ -316,14 +330,22 @@ def panel_supervisor(request):
 @login_required
 def listado_detallado(request):
     supervisor_actual = request.user
-    mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
-    poder_absoluto = es_super_admin(supervisor_actual)
     
-    if poder_absoluto:
+    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
+        if not supervisor_actual.is_superuser:
+            return render(request, 'espera_aprobacion.html')
+
+    perfil = getattr(supervisor_actual, 'perfil', None)
+    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
+    mi_unidad = perfil.unidad if perfil else "Sin Área"
+    
+    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
+    
+    if puede_asignar:
         pasantes_queryset = Pasante.objects.all().order_by('nombre_completo')
         queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
     else:
-        pasantes_queryset = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
+        pasantes_queryset = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
         queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_queryset).select_related('pasante')
 
     lista_con_calculos = []
@@ -375,7 +397,7 @@ def listado_detallado(request):
         'pagina_actual': pagina_actual,            
         'horas_area': round(horas_area, 1),        
         'pasantes_calculados': lista_con_calculos, 
-        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad,
+        'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'listado_detallado_de_asistencia_marca_actualizada/code.html', context)
@@ -384,14 +406,22 @@ def listado_detallado(request):
 @login_required
 def generacion_reportes(request):
     supervisor_actual = request.user
-    mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
-    poder_absoluto = es_super_admin(supervisor_actual)
     
-    if poder_absoluto:
+    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
+        if not supervisor_actual.is_superuser:
+            return render(request, 'espera_aprobacion.html')
+
+    perfil = getattr(supervisor_actual, 'perfil', None)
+    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
+    mi_unidad = perfil.unidad if perfil else "Sin Área"
+    
+    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
+    
+    if puede_asignar:
         pasantes_lista = Pasante.objects.all().order_by('nombre_completo')
         queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
     else:
-        pasantes_lista = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
+        pasantes_lista = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
         queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_lista).select_related('pasante')
         
     filtro_pasante = request.GET.get('pasante_id')
@@ -436,7 +466,7 @@ def generacion_reportes(request):
         'pasantes': pasantes_lista, 
         'reportes_asistencia': reporte_final, 
         'total_horas_periodo': round(total_horas_periodo, 1),
-        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad,
+        'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
         'filtro_pasante': filtro_pasante, 'fecha_desde': fecha_desde, 'fecha_hasta': fecha_hasta, 'pasante_seleccionado': pasante_seleccionado
     }
@@ -449,15 +479,21 @@ def generacion_reportes(request):
 @login_required
 def lista_pasantes(request):
     supervisor_actual = request.user
-    perfil_usuario = PerfilUsuario.objects.get(user=supervisor_actual)
-
-    mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
     
-    poder_absoluto = es_super_admin(supervisor_actual)
+    # COMPROBACIÓN DE PANTALLA AMIGABLE
+    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
+        if not supervisor_actual.is_superuser:
+            return render(request, 'espera_aprobacion.html')
+
+    perfil = getattr(supervisor_actual, 'perfil', None)
+    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
+    mi_unidad = perfil.unidad if perfil else "Sin Área"
+    
+    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
 
     todos_los_usuarios = []
     areas_disponibles = []
-    if perfil_usuario.tipo == 'SUPERVISOR':
+    if puede_asignar:
         todos_los_usuarios = User.objects.filter(is_active=True).select_related('perfil').order_by('username')
         
         areas_bd = list(AreaEmpresa.objects.values_list('nombre', flat=True))
@@ -475,42 +511,43 @@ def lista_pasantes(request):
         horas_req = request.POST.get('horas_requeridas', 360)
         
         area_asignada = mi_unidad
-        supervisor_asignado = supervisor_actual
-
-        if poder_absoluto:
-            username_digitado = request.POST.get('supervisor_username')
+        
+        if puede_asignar:
             area_digitada = request.POST.get('area_asignada')
-            
-            if username_digitado:
-                try:
-                    supervisor_asignado = User.objects.get(username=username_digitado)
-                    area_asignada = area_digitada if area_digitada else (supervisor_asignado.perfil.unidad if hasattr(supervisor_asignado, 'perfil') else "Sin Área")
-                except User.DoesNotExist:
-                    messages.error(request, f"Error: No se encontró al supervisor '{username_digitado}'.")
-                    return redirect('lista_pasantes')
+            if area_digitada:
+                area_asignada = area_digitada
 
         if ci and nombre and f_inicio and f_fin:
             if Pasante.objects.filter(ci=ci).exists():
                 messages.error(request, f"Error: Ya existe un pasante con el CI {ci}.")
             else:
-                Pasante.objects.create(
+                nuevo_pasante = Pasante.objects.create(
                     ci=ci, nombre_completo=nombre, area=area_asignada,
-                    supervisor=supervisor_asignado, fecha_inicio=f_inicio,
-                    fecha_fin=f_fin, horas_requeridas=horas_req
+                    fecha_inicio=f_inicio, fecha_fin=f_fin, horas_requeridas=horas_req
                 )
-                if poder_absoluto:
-                    messages.success(request, f"¡Pasante {nombre} asignado a {supervisor_asignado.username} en {area_asignada}!")
+                
+                if puede_asignar:
+                    supervisores_ids = request.POST.getlist('supervisores_ids')
+                    if supervisores_ids:
+                        for s_id in supervisores_ids:
+                            try:
+                                u_sup = User.objects.get(id=s_id)
+                                nuevo_pasante.supervisores.add(u_sup)
+                            except User.DoesNotExist:
+                                pass
+                    else:
+                        nuevo_pasante.supervisores.add(supervisor_actual)
+                    messages.success(request, f"¡Pasante {nombre} asignado a {area_asignada}!")
                 else:
+                    nuevo_pasante.supervisores.add(supervisor_actual)
                     messages.success(request, f"¡Pasante {nombre} guardado exitosamente!")
             return redirect('lista_pasantes')
 
-    if perfil_usuario.tipo == 'ADMINISTRADOR':
-        pasantes_queryset = Pasante.objects.all()
+    if puede_asignar:
+        pasantes_queryset = Pasante.objects.all().order_by('nombre_completo')
     else:
-        pasantes_queryset = Pasante.objects.filter(supervisor=supervisor_actual)
-    
-    # pasantes_queryset = Pasante.objects.filter(supervisor=supervisor_actual)
-
+        pasantes_queryset = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
+        
     lista_con_calculos = []
     for p in pasantes_queryset:
         horas_hechas_redond = calcular_horas_pasante(p)
@@ -533,9 +570,9 @@ def lista_pasantes(request):
         
     context = {
         'pasantes_calculados': lista_con_calculos, 
-        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad,
+        'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
-        'poder_absoluto': poder_absoluto,
+        'puede_asignar': puede_asignar,
         'todos_los_usuarios': todos_los_usuarios,
         'areas_disponibles': areas_disponibles
     }
@@ -545,13 +582,21 @@ def lista_pasantes(request):
 @login_required
 def gestionar_turnos(request):
     supervisor_actual = request.user
-    mi_unidad = supervisor_actual.perfil.unidad if hasattr(supervisor_actual, 'perfil') else "Sin Área"
-    poder_absoluto = es_super_admin(supervisor_actual)
     
-    if poder_absoluto:
+    if not hasattr(supervisor_actual, 'perfil') or not supervisor_actual.perfil.estado:
+        if not supervisor_actual.is_superuser:
+            return render(request, 'espera_aprobacion.html')
+
+    perfil = getattr(supervisor_actual, 'perfil', None)
+    tipo_rol = perfil.tipo if perfil else 'SUPERVISOR'
+    mi_unidad = perfil.unidad if perfil else "Sin Área"
+    
+    puede_asignar = (tipo_rol in ['SUPER_ADMIN', 'ADMINISTRADOR'] or supervisor_actual.is_superuser or supervisor_actual.username in ['cperezb', 'vvedia'])
+    
+    if puede_asignar:
         pasantes = Pasante.objects.all().order_by('nombre_completo')
     else:
-        pasantes = Pasante.objects.filter(Q(supervisor=supervisor_actual) | Q(area=mi_unidad)).order_by('nombre_completo')
+        pasantes = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
         
     if request.method == 'POST':
         pasante_id = request.POST.get('pasante_id')
@@ -577,7 +622,7 @@ def gestionar_turnos(request):
     context = {
         'pasantes': pasantes, 
         'turnos': turnos, 
-        'mi_unidad': "Toda la Empresa" if poder_absoluto else mi_unidad, 
+        'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad, 
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'gestionar_turnos_marca_actualizada/code.html', context)

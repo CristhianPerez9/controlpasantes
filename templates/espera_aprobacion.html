@@ -1,0 +1,30 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Restringido - COMTECO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4" style="font-family: 'Inter', sans-serif;">
+    <div class="bg-white rounded-3xl shadow-xl border border-slate-200 p-8 md:p-12 max-w-md w-full text-center">
+        <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <i class="fa-solid fa-lock text-3xl text-amber-500"></i>
+        </div>
+        <h1 class="text-2xl font-black text-slate-800 mb-2">Cuenta en Revisión</h1>
+        <p class="text-sm text-slate-500 mb-8 leading-relaxed">
+            Hola <b>{{ request.user.first_name }}</b>, tu cuenta ha sido creada exitosamente pero aún requiere la aprobación del <b>Departamento de TI / RRHH</b> para acceder al panel de pasantes.
+        </p>
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 mb-8 text-left">
+            <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Próximos Pasos:</p>
+            <p class="text-xs text-slate-600 font-medium"><i class="fa-solid fa-check text-emerald-500 mr-2"></i> Solicita a tu administrador que te asigne un rol (Supervisor).</p>
+        </div>
+        <a href="{% url 'logout' %}" class="block w-full bg-[#cc0000] hover:bg-red-800 text-white font-bold py-3 rounded-xl transition-colors text-sm">
+            Cerrar Sesión y Volver
+        </a>
+    </div>
+</body>
+</html>
