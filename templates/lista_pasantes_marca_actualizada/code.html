@@ -51,6 +51,7 @@
 
         <main class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col xl:flex-row gap-6 md:gap-8 bg-[#f4f5f6]">
             
+            {% if puede_asignar %}
             <div class="w-full xl:w-[35%] flex flex-col gap-4 md:gap-6">
                 <div>
                     <h2 class="text-xl md:text-2xl font-bold text-slate-800">Alta de Pasantes</h2>
@@ -81,33 +82,33 @@
                         <input type="text" name="nombre_completo" required placeholder="Nombre Apellido" class="w-full text-xs md:text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 md:py-2.5 outline-none focus:border-slate-400 transition-colors"/>
                     </div>
 
-                    {% if puede_asignar %}
-                    <div class="bg-rose-50 border border-rose-200 p-3 rounded-xl mt-1 flex flex-col gap-3">
-                        <div class="flex items-center gap-2 font-bold text-[10px] uppercase text-[#cc0000] border-b border-rose-200 pb-2">
-                            <i class="fa-solid fa-sitemap"></i> Asignación Corporativa (RRHH)
-                        </div>
-                        <div class="grid grid-cols-1 gap-3">
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-bold text-slate-600 uppercase">Supervisores (Múltiples)</label>
-                                <select name="supervisores_ids" multiple class="w-full text-xs bg-white border border-rose-300 rounded-lg px-3 py-2 outline-none focus:border-[#cc0000] h-24 overflow-y-auto">
-                                    {% for u in todos_los_usuarios %}
-                                        <option value="{{ u.id }}">{{ u.first_name }} {{ u.last_name }} ({{ u.perfil.unidad }})</option>
-                                    {% endfor %}
-                                </select>
-                                <p class="text-[8px] text-slate-500 mt-0.5"><i class="fa-solid fa-circle-info"></i> Usa Ctrl/Cmd para elegir a varios jefes.</p>
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-bold text-slate-600 uppercase">Área Destino</label>
-                                <input list="lista_areas" name="area_asignada" placeholder="Ej: Call Center" class="w-full text-xs bg-white border border-rose-300 rounded-lg px-3 py-2 outline-none focus:border-[#cc0000]"/>
-                                <datalist id="lista_areas">
-                                    {% for area in areas_disponibles %}
-                                        <option value="{{ area }}">
-                                    {% endfor %}
-                                </datalist>
-                            </div>
-                        </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-semibold text-slate-400 uppercase">Área / Departamento Destino</label>
+                        <select name="area_asignada" required class="w-full text-xs md:text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 md:py-2.5 outline-none focus:border-[#cc0000] cursor-pointer">
+                            <option value="" disabled selected>-- Selecciona un Área --</option>
+                            {% for area in areas_disponibles %}
+                                <option value="{{ area }}">{{ area }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    {% endif %}
+
+                    <div class="bg-rose-50 border border-rose-200 p-4 rounded-xl mt-1 flex flex-col gap-2">
+                        <div class="flex items-center gap-2 font-bold text-[10px] uppercase text-[#cc0000] border-b border-rose-200 pb-2">
+                            <i class="fa-solid fa-user-check"></i> Supervisor Asignado
+                        </div>
+                        
+                        <select name="supervisores_ids" id="real-supervisores-select" multiple required class="hidden">
+                            {% for u in todos_los_usuarios %}
+                                <option value="{{ u.id }}">{{ u.first_name }} {{ u.last_name }} ({{ u.perfil.unidad }})</option>
+                            {% endfor %}
+                        </select>
+
+                        <div id="supervisores-ui-container" class="py-2 min-h-[40px] flex flex-wrap gap-2 items-center">
+                            <p class="text-xs text-slate-500 italic">Selecciona un Área arriba para ver los encargados.</p>
+                        </div>
+                        
+                        <p class="text-[8px] text-slate-400 mt-1"><i class="fa-solid fa-hand-pointer"></i> Haz clic en los nombres para asignarlos al pasante.</p>
+                    </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1">
@@ -130,12 +131,18 @@
                     </button>
                 </form>
             </div>
+            {% endif %}
 
-            <div class="w-full xl:w-[65%] flex flex-col gap-4 md:gap-6 mt-4 xl:mt-0">
+            <div class="w-full {% if puede_asignar %}xl:w-[65%]{% else %}xl:w-full{% endif %} flex flex-col gap-4 md:gap-6 mt-4 xl:mt-0">
                 <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-slate-500 xl:mt-8">
                     <i class="fa-solid fa-chart-pie"></i> Balance de Horas y Calificaciones
                 </div>
                 
+                {% if puede_asignar %}
+                <div id="filter-container" class="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    </div>
+                {% endif %}
+
                 <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex-1">
                     <div class="overflow-x-auto w-full">
                         <table class="w-full text-left text-[10px] md:text-xs border-collapse min-w-[650px]">
@@ -151,7 +158,7 @@
                             <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
                                 {% if pasantes_calculados %}
                                     {% for calc in pasantes_calculados %}
-                                    <tr class="hover:bg-slate-50/50 transition-colors">
+                                    <tr class="hover:bg-slate-50/50 transition-colors pasante-row" data-area="{{ calc.objeto.area }}">
                                         
                                         <td class="py-3 md:py-4 px-4 md:px-5">
                                             <p class="font-bold text-slate-800 text-xs md:text-sm">{{ calc.objeto.nombre_completo }}</p>
@@ -209,5 +216,134 @@
             </div>
         </main>
     </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // --- 1. LÓGICA DE ASIGNACIÓN (ADMIN) ---
+        const areaSelect = document.querySelector('select[name="area_asignada"]');
+        const realSelect = document.getElementById('real-supervisores-select');
+        const uiContainer = document.getElementById('supervisores-ui-container');
+
+        if (areaSelect && realSelect && uiContainer) {
+            const mapaSupervisores = {{ mapa_supervisores_json|safe }};
+
+            function normalizar(texto) {
+                return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+            }
+
+            areaSelect.addEventListener("change", function() {
+                const areaSeleccionada = this.value.trim();
+                const responsables = mapaSupervisores[areaSeleccionada]; 
+
+                uiContainer.innerHTML = ''; 
+                let hayDisponibles = false;
+
+                Array.from(realSelect.options).forEach(opt => {
+                    opt.selected = false; 
+                    
+                    if (!responsables || responsables.length === 0) return;
+
+                    const optText = normalizar(opt.text);
+                    let esResponsable = false;
+
+                    responsables.forEach(resp => {
+                        const respNorm = normalizar(resp);
+                        const palabrasResp = respNorm.split(" ").filter(p => p.length > 2);
+                        
+                        let coincidencias = 0;
+                        palabrasResp.forEach(palabra => {
+                            if (optText.includes(palabra)) coincidencias++;
+                        });
+
+                        if (coincidencias >= 2 || (palabrasResp.length === 1 && coincidencias === 1)) {
+                            esResponsable = true;
+                        }
+                    });
+
+                    if (esResponsable) {
+                        hayDisponibles = true;
+                        
+                        const chip = document.createElement('div');
+                        const nombreLimpio = opt.text.split('(')[0].trim();
+                        
+                        chip.className = "cursor-pointer text-xs font-bold px-3 py-1.5 rounded-md border transition-all duration-200 bg-white border-slate-300 text-slate-600 hover:border-[#cc0000] hover:text-[#cc0000] shadow-sm";
+                        chip.innerHTML = `<i class="fa-solid fa-plus mr-1"></i> ${nombreLimpio}`;
+                        
+                        chip.addEventListener('click', function() {
+                            opt.selected = !opt.selected; 
+                            
+                            if (opt.selected) {
+                                chip.classList.remove('bg-white', 'border-slate-300', 'text-slate-600', 'hover:border-[#cc0000]', 'hover:text-[#cc0000]');
+                                chip.classList.add('bg-[#cc0000]', 'border-[#cc0000]', 'text-white');
+                                chip.innerHTML = `<i class="fa-solid fa-check mr-1"></i> ${nombreLimpio}`;
+                            } else {
+                                chip.classList.remove('bg-[#cc0000]', 'border-[#cc0000]', 'text-white');
+                                chip.classList.add('bg-white', 'border-slate-300', 'text-slate-600', 'hover:border-[#cc0000]', 'hover:text-[#cc0000]');
+                                chip.innerHTML = `<i class="fa-solid fa-plus mr-1"></i> ${nombreLimpio}`;
+                            }
+                        });
+                        
+                        uiContainer.appendChild(chip);
+                    }
+                });
+
+                if (!responsables || responsables.length === 0) {
+                    uiContainer.innerHTML = '<p class="text-xs text-slate-500 italic">Selecciona un Área arriba para ver los encargados.</p>';
+                } else if (!hayDisponibles) {
+                    uiContainer.innerHTML = '<p class="text-xs text-slate-500 italic">No se encontraron cuentas activas para esta área.</p>';
+                }
+            });
+
+            if (areaSelect.value) {
+                areaSelect.dispatchEvent(new Event("change"));
+            }
+        }
+
+        // --- 2. LÓGICA DEL FILTRO DE LA TABLA (PÍLDORAS) ---
+        const rows = document.querySelectorAll('.pasante-row');
+        const filterContainer = document.getElementById('filter-container');
+        
+        // Si el contenedor existe (es decir, si el usuario es Admin) y hay filas
+        if (filterContainer && rows.length > 0) {
+            const areasSet = new Set();
+            rows.forEach(row => {
+                if(row.dataset.area) areasSet.add(row.dataset.area.trim());
+            });
+
+            if (areasSet.size > 0) {
+                const btnTodos = document.createElement('button');
+                btnTodos.className = 'filter-btn px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-[#cc0000] text-white shadow-md transition-all';
+                btnTodos.innerText = 'Todos';
+                btnTodos.onclick = () => filterTable('Todos', btnTodos);
+                filterContainer.appendChild(btnTodos);
+
+                areasSet.forEach(area => {
+                    const btn = document.createElement('button');
+                    btn.className = 'filter-btn px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-white text-slate-500 border border-slate-200 hover:border-[#cc0000] hover:text-[#cc0000] transition-all shadow-sm';
+                    btn.innerText = area;
+                    btn.onclick = () => filterTable(area, btn);
+                    filterContainer.appendChild(btn);
+                });
+
+                function filterTable(selectedArea, clickedBtn) {
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.classList.remove('bg-[#cc0000]', 'text-white', 'shadow-md');
+                        b.classList.add('bg-white', 'text-slate-500', 'border', 'border-slate-200', 'shadow-sm');
+                    });
+                    clickedBtn.classList.remove('bg-white', 'text-slate-500', 'border-slate-200', 'shadow-sm');
+                    clickedBtn.classList.add('bg-[#cc0000]', 'text-white', 'shadow-md');
+
+                    rows.forEach(row => {
+                        if (selectedArea === 'Todos' || row.dataset.area === selectedArea) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
+                }
+            }
+        }
+    });
+    </script>
 </body>
 </html>

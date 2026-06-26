@@ -1,5 +1,6 @@
 import os
 import csv
+import json
 import datetime  
 from datetime import datetime, date
 from django.shortcuts import render, redirect, get_object_or_404
@@ -15,27 +16,15 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator  
 from django.core.mail import send_mail
 
-# ================================================================
-# 1. CONTROL DE ACCESO ESTRICTO (INQUEBRANTABLE)
-# ================================================================
-
 def tiene_acceso_al_sistema(user):
-    """ 
-    MURO DE HIERRO: Ignora al LDAP por completo.
-    Si no eres cperezb, vvedia, o no estás en el grupo autorizado, ¡no entras!
-    """
     if user.username in ['cperezb', 'vvedia']:
         return True
-    
-    # Acepta tanto mayúsculas como minúsculas por si acaso
     grupos_permitidos = ['Supervisores', 'supervisores', 'RRHH', 'rrhh']
     return user.groups.filter(name__in=grupos_permitidos).exists()
 
 def es_admin_rrhh(user):
-    """ Define quién puede ver la caja de RRHH y a toda la empresa """
     if user.username in ['cperezb', 'vvedia']:
         return True
-    
     grupos_rrhh = ['RRHH', 'rrhh']
     return user.groups.filter(name__in=grupos_rrhh).exists()
 
@@ -49,12 +38,10 @@ def calcular_horas_pasante(pasante):
     marcas = RegistroAsistencia.objects.filter(pasante=pasante)
     horas_totales = 0.0
     marcas_por_dia = {}
-    
     for m in marcas:
         if m.fecha not in marcas_por_dia:
             marcas_por_dia[m.fecha] = []
         marcas_por_dia[m.fecha].append(m)
-    
     for fecha_dia, lista_marcas in marcas_por_dia.items():
         entrada = None
         for m in lista_marcas:
@@ -68,11 +55,6 @@ def calcular_horas_pasante(pasante):
                 entrada = None
     return round(horas_totales, 1)
 
-
-# ================================================================
-# 2. VISTAS DEL SISTEMA (TODAS BLINDADAS)
-# ================================================================
-
 @login_required
 def importar_datos_csv(request):
     if not tiene_acceso_al_sistema(request.user):
@@ -80,7 +62,6 @@ def importar_datos_csv(request):
 
     base_dir = settings.BASE_DIR
     archivos_en_raiz = os.listdir(base_dir)
-    
     archivo_areas = None
     for f in archivos_en_raiz:
         if 'SIRHU' in f.upper() and f.endswith('.csv'):
@@ -95,16 +76,13 @@ def importar_datos_csv(request):
                 if contenido_areas:
                     sep = ';' if ';' in contenido_areas[0] or (len(contenido_areas) > 1 and ';' in contenido_areas[1]) else ','
                     lector_areas = csv.reader(contenido_areas, delimiter=sep)
-                    
                     for fila in lector_areas:
                         if not fila or len(fila) < 3: 
                             continue
                         col_cero = str(fila[0]).strip().upper()
                         nombre_area = str(fila[2]).strip().upper()
-                        
                         if 'CÓDIGO' in col_cero or 'SIRHU' in col_cero or nombre_area == 'DESCRIPCIÓN':
                             continue
-                        
                         if nombre_area:
                             try:
                                 obj = AreaEmpresa.objects.filter(nombre=nombre_area).first()
@@ -129,7 +107,6 @@ def importar_datos_csv(request):
     if archivo_detectado:
         columnas_excel = {'Deysi': (1, 2), 'Yusara': (4, 5), 'Alison': (7, 8), 'Sheyling': (10, 11)}
         user_supervisor = request.user
-
         pasantes_db = {}
         for nombre in columnas_excel.keys():
             obj, creado = Pasante.objects.get_or_create(
@@ -147,7 +124,6 @@ def importar_datos_csv(request):
             separador = ';' if ';' in contenido[0] else ','
             lector = csv.reader(contenido, delimiter=separador)
             lineas = list(lector)
-
             indice_inicio = 0
             for i, fila in enumerate(lineas):
                 if fila and str(fila[0]).strip().lower() == 'fecha':
@@ -180,20 +156,15 @@ def importar_datos_csv(request):
 
     return HttpResponse(f"<h2>🎉 ¡Operación Exitosa!</h2><p>Se registraron {areas_creadas} nuevas áreas/departamentos desde el SIRHU.</p><p>Se cargaron {contador_marcas} marcaciones.</p><br><a href='/panel/'>Volver al Panel</a>")
 
-
-# --- REGISTRO PUBLICO DESDE MOSTRADOR (Este no pide login) ---
 def registrar_asistencia(request):
     if request.method == 'POST':
         ci_digitado = request.POST.get('ci_value')
-        
         if not ci_digitado:
             messages.error(request, "Por favor, introduzca su Carnet de Identidad.")
             return redirect('registrar_asistencia')
-            
         try:
             pasante = Pasante.objects.get(ci=ci_digitado)
             fecha_hoy = date.today()
-            
             marca_entrada = RegistroAsistencia.objects.filter(pasante=pasante, fecha=fecha_hoy, tipo='ENTRADA').first()
             marca_salida = RegistroAsistencia.objects.filter(pasante=pasante, fecha=fecha_hoy, tipo='SALIDA').first()
             estado_registro = 'APROBADO'
@@ -201,14 +172,11 @@ def registrar_asistencia(request):
             if not marca_entrada:
                 RegistroAsistencia.objects.create(pasante=pasante, tipo='ENTRADA', estado=estado_registro)
                 messages.success(request, f"¡Marca de ENTRADA registrada con éxito para {pasante.nombre_completo}!")
-                
             elif marca_entrada and not marca_salida:
                 ahora_hora = datetime.now().time()
                 limite_salida = datetime.strptime('16:15', '%H:%M').time() 
-                
                 if ahora_hora > limite_salida:
                     estado_registro = 'PENDIENTE'
-                    
                 nueva_marca = RegistroAsistencia.objects.create(pasante=pasante, tipo='SALIDA', estado=estado_registro)
                 
                 supervisores_lista = pasante.supervisores.all()
@@ -217,7 +185,6 @@ def registrar_asistencia(request):
                 if correos:
                     primer_sup = supervisores_lista.first()
                     nombre_sup = obtener_nombre_completo_ldap(primer_sup)
-                    
                     if estado_registro == 'PENDIENTE':
                         asunto = f"⚠️ Solicitud de Horas Extra Pendiente - {pasante.nombre_completo}"
                         cuerpo = f"Estimado(a) {nombre_sup},\n\n" \
@@ -230,7 +197,6 @@ def registrar_asistencia(request):
                         
                     horas_hechas = calcular_horas_pasante(pasante)
                     horas_restantes = float(pasante.horas_requeridas) - horas_hechas
-                    
                     if 24 <= horas_restantes <= 30:
                         asunto_fin = f"🎓 AVISO: Conclusión de Pasantía Próxima - {pasante.nombre_completo}"
                         cuerpo_fin = f"Estimado(a) {nombre_sup},\n\n" \
@@ -244,18 +210,13 @@ def registrar_asistencia(request):
                         messages.warning(request, f"Salida registrada fuera de horario regular. Pendiente de aprobación.")
                     else:
                         messages.success(request, f"¡Marca de SALIDA registrada con éxito para {pasante.nombre_completo}!")
-
             else:
                 messages.error(request, f"Atención {pasante.nombre_completo}: Ya completaste tus marcaciones por hoy.")
-                
             return redirect('registrar_asistencia')
-            
         except Pasante.DoesNotExist:
             messages.error(request, "Error: El Carnet de Identidad no está registrado.")
             return redirect('registrar_asistencia')
-            
     return render(request, 'registro_de_asistencia_pasante_marca_actualizada/code.html')
-
 
 @login_required
 def decidir_horas_extra(request, marca_id, accion):
@@ -276,14 +237,13 @@ def decidir_horas_extra(request, marca_id, accion):
             messages.warning(request, f"Marcación extraordinaria de {marca.pasante.nombre_completo} rechazada.")
     return redirect('panel_supervisor')
 
-
 @login_required
 def index_dashboard(request):
     if not tiene_acceso_al_sistema(request.user):
         return render(request, 'espera_aprobacion.html')
     return redirect('panel_supervisor')
 
-
+# --- MAGIA DE LOS CÁLCULOS DEL DASHBOARD CORREGIDA ---
 @login_required
 def panel_supervisor(request):
     if not tiene_acceso_al_sistema(request.user):
@@ -291,7 +251,6 @@ def panel_supervisor(request):
 
     supervisor_actual = request.user
     puede_asignar = es_admin_rrhh(supervisor_actual)
-    
     perfil = getattr(supervisor_actual, 'perfil', None)
     mi_unidad = perfil.unidad if perfil else "Sin Área"
     
@@ -308,6 +267,7 @@ def panel_supervisor(request):
     alertas_tardanza = 0
     marcas_por_pasante = {}
     
+    # Agrupamos todas las marcas por cada pasante
     for m in asistencias:
         if m.pasante_id not in marcas_por_pasante:
             marcas_por_pasante[m.pasante_id] = []
@@ -315,8 +275,16 @@ def panel_supervisor(request):
         if m.tipo == 'ENTRADA' and m.hora > datetime.strptime('08:15', '%H:%M').time():
             alertas_tardanza += 1
 
+    presentes_ahora = 0
+    presentes_hoy_count = len(marcas_por_pasante) # Cuántas personas únicas vinieron hoy
+
     for pid, marcas in marcas_por_pasante.items():
         marcas_asc = sorted(marcas, key=lambda x: x.hora)
+        
+        # SI LA ÚLTIMA MARCA FUE ENTRADA, SIGNIFICA QUE SIGUEN AQUÍ
+        if marcas_asc[-1].tipo == 'ENTRADA':
+            presentes_ahora += 1
+
         entrada = None
         for m in marcas_asc:
             if m.tipo == 'ENTRADA':
@@ -330,15 +298,17 @@ def panel_supervisor(request):
 
     context = {
         'pasantes': pasantes, 
-        'asistencias': asistencias, 
+        'asistencias': asistencias, # Esto alimenta la lista de Actividad Reciente
         'asistencias_pendientes': pendientes,
         'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
         'horas_hoy': round(horas_hoy, 1),
         'alertas_tardanza': alertas_tardanza,
-        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
+        'presentes_ahora': presentes_ahora,           # NUEVO: Cálculo exacto
+        'presentes_hoy_count': presentes_hoy_count,   # NUEVO: Únicos de hoy
+        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
+        'puede_asignar': puede_asignar
     }
     return render(request, 'panel_del_supervisor_marca_actualizada/code.html', context)
-
 
 @login_required
 def listado_detallado(request):
@@ -359,14 +329,10 @@ def listado_detallado(request):
 
     lista_con_calculos = []
     horas_area = 0.0
-    
     for p in pasantes_queryset:
         horas_totales_p = calcular_horas_pasante(p)
         horas_area += horas_totales_p
-        lista_con_calculos.append({
-            'objeto': p,
-            'horas_hechas': horas_totales_p
-        })
+        lista_con_calculos.append({'objeto': p, 'horas_hechas': horas_totales_p})
 
     fechas_unicas = queryset_marcas.order_by('-fecha').values_list('fecha', flat=True).distinct()
     paginator = Paginator(fechas_unicas, 1)  
@@ -410,7 +376,6 @@ def listado_detallado(request):
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'listado_detallado_de_asistencia_marca_actualizada/code.html', context)
-
 
 @login_required
 def generacion_reportes(request):
@@ -477,7 +442,6 @@ def generacion_reportes(request):
     }
     return render(request, 'generaci_n_de_reportes_marca_actualizada/code.html', context)
 
-
 @login_required
 def lista_pasantes(request):
     if not tiene_acceso_al_sistema(request.user):
@@ -490,12 +454,19 @@ def lista_pasantes(request):
 
     todos_los_usuarios = []
     areas_disponibles = []
+    mapa_supervisores = {}
+
     if puede_asignar:
         todos_los_usuarios = User.objects.filter(is_active=True).select_related('perfil').order_by('username')
+        areas_objs = AreaEmpresa.objects.all().order_by('nombre')
         
-        areas_bd = list(AreaEmpresa.objects.values_list('nombre', flat=True))
-        if areas_bd:
-            areas_disponibles = sorted(areas_bd)
+        if areas_objs.exists():
+            areas_disponibles = [a.nombre for a in areas_objs]
+            for a in areas_objs:
+                if a.responsable:
+                    mapa_supervisores[a.nombre] = [r.strip() for r in a.responsable.split(',')]
+                else:
+                    mapa_supervisores[a.nombre] = []
         else:
             areas_brutas = [u.perfil.unidad for u in todos_los_usuarios if hasattr(u, 'perfil') and u.perfil.unidad]
             areas_disponibles = sorted(list(set(areas_brutas)))
@@ -508,7 +479,6 @@ def lista_pasantes(request):
         horas_req = request.POST.get('horas_requeridas', 360)
         
         area_asignada = mi_unidad
-        
         if puede_asignar:
             area_digitada = request.POST.get('area_asignada')
             if area_digitada:
@@ -522,7 +492,6 @@ def lista_pasantes(request):
                     ci=ci, nombre_completo=nombre, area=area_asignada,
                     fecha_inicio=f_inicio, fecha_fin=f_fin, horas_requeridas=horas_req
                 )
-                
                 if puede_asignar:
                     supervisores_ids = request.POST.getlist('supervisores_ids')
                     if supervisores_ids:
@@ -550,31 +519,28 @@ def lista_pasantes(request):
         horas_hechas_redond = calcular_horas_pasante(p)
         horas_req_float = float(p.horas_requeridas)
         horas_restantes = max(0.0, round(horas_req_float - horas_hechas_redond, 1))
-        
         porcentaje = 0
         if horas_req_float > 0:
             porcentaje = min(100, int((horas_hechas_redond / horas_req_float) * 100))
-            
         alerta_conclusion = horas_restantes <= 30
-        
         lista_con_calculos.append({
-            'objeto': p,
-            'horas_hechas': horas_hechas_redond,
-            'horas_restantes': horas_restantes,
-            'porcentaje': porcentaje,
+            'objeto': p, 'horas_hechas': horas_hechas_redond,
+            'horas_restantes': horas_restantes, 'porcentaje': porcentaje,
             'alerta_conclusion': alerta_conclusion
         })
         
+    mapa_supervisores_json = json.dumps(mapa_supervisores)
+
     context = {
         'pasantes_calculados': lista_con_calculos, 
         'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
         'puede_asignar': puede_asignar,
         'todos_los_usuarios': todos_los_usuarios,
-        'areas_disponibles': areas_disponibles
+        'areas_disponibles': areas_disponibles,
+        'mapa_supervisores_json': mapa_supervisores_json 
     }
     return render(request, 'lista_pasantes_marca_actualizada/code.html', context)
-
 
 @login_required
 def gestionar_turnos(request):
@@ -602,7 +568,6 @@ def gestionar_turnos(request):
         if pasante_id and dia_seleccionado and turno and entrada and salida:
             p_obj = get_object_or_404(Pasante, id=pasante_id)
             dias_a_guardar = ['LU', 'MA', 'MI', 'JU', 'VI'] if dia_seleccionado == 'LV' else [dia_seleccionado]
-            
             for d in dias_a_guardar:
                 TurnoPasante.objects.update_or_create(
                     pasante=p_obj, dia=d, turno=turno,
@@ -619,7 +584,6 @@ def gestionar_turnos(request):
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
     }
     return render(request, 'gestionar_turnos_marca_actualizada/code.html', context)
-
 
 @login_required
 def cerrar_sesion(request):

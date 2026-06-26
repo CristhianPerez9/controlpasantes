@@ -68,18 +68,32 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                <div class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div><p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Total Pasantes</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{{ pasantes.count }}</h3></div>
-                    <div class="w-10 h-10 bg-rose-50 text-[#cc0000] rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-users"></i></div>
-                </div>
-                <div class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div><p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Presentes Ahora</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{{ asistencias.count }}</h3></div>
-                    <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-circle-check"></i></div>
-                </div>
+                
+                <a href="{% url 'lista_pasantes' %}" class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md hover:border-[#cc0000]/40 transition-all cursor-pointer group">
+                    <div>
+                        <p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider group-hover:text-[#cc0000] transition-colors">Total Pasantes</p>
+                        <h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{{ pasantes.count }}</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-rose-50 text-[#cc0000] rounded-xl flex items-center justify-center text-lg group-hover:bg-[#cc0000] group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                </a>
+                
+                <a href="{% url 'listado_detallado' %}" class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md hover:border-emerald-500/40 transition-all cursor-pointer group">
+                    <div>
+                        <p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider group-hover:text-emerald-600 transition-colors">Presentes Ahora</p>
+                        <h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{{ presentes_ahora }}</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </a>
+
                 <div class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between bg-red-50/20">
                     <div><p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Alertas Tardanza</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{% if alertas_tardanza < 10 %}0{% endif %}{{ alertas_tardanza }}</h3></div>
                     <div class="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-triangle-exclamation"></i></div>
                 </div>
+                
                 <div class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
                     <div><p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Horas Hoy</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{{ horas_hoy|default:"0" }}</h3></div>
                     <div class="w-10 h-10 bg-slate-50 text-slate-600 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-clock"></i></div>
@@ -111,6 +125,7 @@
                 </div>
             </div>
             {% endif %}
+            
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start flex-1">
                 
                 <div class="col-span-1 lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 flex flex-col gap-4 min-h-[300px] md:min-h-[400px]">
@@ -137,7 +152,9 @@
                         <div><h4 class="font-bold text-base md:text-lg tracking-tight">Estado del Sistema: Óptimo</h4><p class="text-xs md:text-sm text-rose-100 mt-1">Todos los terminales de registro están operativos. Sincronización activa.</p></div>
                         <div class="flex flex-col sm:flex-row gap-3 md:gap-4 mt-4">
                             <a href="{% url 'generacion_reportes' %}" class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 transition-all"><i class="fa-solid fa-file-pdf"></i> Reporte Semanal</a>
-                            <a href="{% url 'lista_pasantes' %}" class="bg-white text-[#cc0000] text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow transition-all hover:bg-rose-50"><i class="fa-solid fa-gears"></i> Gestionar Turnos</a>
+                            {% if puede_asignar %}
+                            <a href="{% url 'gestionar_turnos' %}" class="bg-white text-[#cc0000] text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow transition-all hover:bg-rose-50"><i class="fa-solid fa-gears"></i> Gestionar Turnos</a>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -157,7 +174,7 @@
                                     <tr class="hover:bg-slate-50/50 transition-colors">
                                         <td class="py-3 md:py-4 px-4 md:px-5 font-bold text-slate-800">{{ mi_unidad }}</td>
                                         <td class="py-3 md:py-4 px-4 md:px-5 text-center font-semibold">{{ pasantes.count }}</td>
-                                        <td class="py-3 md:py-4 px-4 md:px-5 text-center font-semibold">{{ asistencias.count }}</td>
+                                        <td class="py-3 md:py-4 px-4 md:px-5 text-center font-semibold">{{ presentes_hoy_count }}</td>
                                     </tr>
                                 </tbody>
                             </table>

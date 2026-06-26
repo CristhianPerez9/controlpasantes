@@ -62,6 +62,7 @@ class TurnoPasante(models.Model):
 
 class AreaEmpresa(models.Model):
     nombre = models.CharField(max_length=200, unique=True)
+    responsable = models.CharField(max_length=255, blank=True, null=True, help_text="Nombre del responsable oficial según RRHH")
 
     def __str__(self):
         return self.nombre
