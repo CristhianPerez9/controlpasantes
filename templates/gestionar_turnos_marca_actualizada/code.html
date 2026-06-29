@@ -4,108 +4,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestionar Turnos - COMTECO Pasantes</title>
+    <title>Gestionar Turnos - COMTECO</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     <style>body { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="bg-[#f4f5f6] min-h-screen flex flex-col">
-    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 shrink-0">
-        <div class="flex items-center gap-3">
-            <img src="{% static 'logo.png' %}" alt="Logo COMTECO" class="h-7 w-7 object-contain">
-            <h1 class="text-sm font-bold text-slate-700 tracking-tight">COMTECO <span class="text-slate-400 font-medium">Pasantes</span></h1>
+    
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 shrink-0">
+        <div class="flex items-center gap-2 md:gap-3">
+            <img src="{% static 'logo.png' %}" alt="Logo" class="h-6 w-6 md:h-7 md:w-7 object-contain">
+            <h1 class="text-xs md:text-sm font-bold text-[#cc0000] tracking-tight">COMTECO <span class="text-slate-500 font-medium">Pasantes</span></h1>
         </div>
-        <div class="flex items-center gap-2 cursor-pointer text-slate-500 hover:text-slate-800 text-sm">
-            <i class="fa-regular fa-user-circle text-lg"></i><span class="text-xs font-semibold">{{ user.username }}</span>
+        <div class="flex items-center text-slate-500 text-sm">
+            <div class="flex items-center gap-2 border-r border-slate-200 pr-3 md:pr-4 mr-3 md:mr-4">
+                <i class="fa-regular fa-user-circle text-lg md:text-xl"></i>
+                <span class="text-[10px] md:text-xs font-semibold truncate max-w-[100px] md:max-w-none">{{ supervisor_nombre_completo }}</span>
+            </div>
+            <a href="{% url 'logout' %}" class="text-slate-400 hover:text-[#cc0000] transition-colors flex items-center gap-1.5" title="Cerrar Sesión">
+                <i class="fa-solid fa-arrow-right-from-bracket text-lg"></i>
+                <span class="hidden md:inline text-xs font-bold">Salir</span>
+            </a>
         </div>
     </header>
 
-    <div class="flex-1 flex overflow-hidden">
-        <aside class="w-64 bg-white border-r border-slate-200 p-4 flex flex-col justify-between shrink-0">
-            <div class="flex flex-col gap-6">
-                <div class="px-2 pt-2"><h2 class="text-xs font-bold text-[#cc0000] uppercase tracking-wider">Administración</h2></div>
-                <nav class="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-                    <a href="{% url 'panel_supervisor' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-table-cells-large text-sm"></i> Panel Control</a>
-                    <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-users text-sm"></i> Lista Pasantes</a>
-                    <a href="{% url 'listado_detallado' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-clock-rotate-left text-sm"></i> Control Asistencia</a>
-                    <a href="{% url 'generacion_reportes' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-100 transition-colors"><i class="fa-solid fa-file-invoice text-sm"></i> Generar Reportes</a>
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <aside class="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-4 flex flex-col justify-between shrink-0 overflow-y-auto md:max-h-full max-h-[40vh]">
+            <div class="flex flex-col gap-4">
+                <div class="px-2 pt-2 hidden md:block">
+                    <h2 class="text-xs font-black text-[#cc0000] uppercase tracking-wider">Administración</h2>
+                    <p class="text-[10px] text-slate-400">Control de Pasantías</p>
+                </div>
+                <nav class="flex md:flex-col flex-row flex-wrap gap-2 text-xs font-semibold text-slate-600 md:mt-2 justify-center md:justify-start">
+                    <a href="{% url 'panel_supervisor' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-table-cells-large text-sm w-4"></i> Panel Control</a>
+                    <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-users text-sm w-4"></i> Lista Pasantes</a>
+                    <a href="{% url 'listado_detallado' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-clock-rotate-left text-sm w-4"></i> Control Asistencia</a>
+                    <a href="{% url 'generacion_reportes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-file-invoice text-sm w-4"></i> Generar Reportes</a>
                 </nav>
             </div>
-            <a href="{% url 'registrar_asistencia' %}" class="bg-[#cc0000] hover:bg-red-700 text-white text-xs font-bold py-3 px-4 rounded-xl text-center shadow-md"><i class="fa-solid fa-right-to-bracket mr-1"></i> Registrar Entrada</a>
+            <a href="{% url 'registrar_asistencia' %}" class="mt-4 md:mt-0 bg-[#cc0000] hover:bg-red-800 text-white text-xs font-bold py-3 px-4 rounded-xl text-center shadow-md transition-colors block"><i class="fa-solid fa-right-to-bracket mr-1"></i> Registrar Entrada</a>
         </aside>
 
-        <main class="flex-1 p-8 overflow-y-auto grid grid-cols-5 gap-8 items-start">
-            <div class="col-span-2 flex flex-col gap-6">
+        <main class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col xl:flex-row gap-6 md:gap-8 bg-[#f4f5f6]">
+            
+            <div class="w-full xl:w-[35%] flex flex-col gap-4 md:gap-6">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-800">Gestionar Turnos</h2>
-                    <p class="text-sm text-slate-400 mt-0.5">Asigna horarios fijos o rotativos a tu personal.</p>
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-800">Gestionar Turnos</h2>
+                    <p class="text-xs md:text-sm text-slate-500 mt-1">Asigna horarios fijos o rotativos a tu personal.</p>
                 </div>
-                {% if messages %}{% for m in messages %}<div class="p-3.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">{{ m }}</div>{% endfor %}{% endif %}
                 
-                <form method="POST" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col gap-4 text-xs font-semibold">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="p-3 md:p-4 mb-2 rounded-xl text-xs md:text-sm font-bold {% if message.tags == 'error' %}bg-red-100 text-red-700 border border-red-200{% else %}bg-emerald-100 text-emerald-700 border border-emerald-200{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="POST" class="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm flex flex-col gap-4 md:gap-5">
                     {% csrf_token %}
-                    <span class="text-xs font-bold text-[#cc0000] uppercase tracking-wider"><i class="fa-solid fa-calendar-plus mr-1"></i> Asignación de Horario</span>
+                    <div class="flex items-center gap-2 mb-2 font-bold text-xs uppercase tracking-wider" style="color: #cc0000;">
+                        <i class="fa-regular fa-calendar-plus"></i> Asignación de Horario
+                    </div>
                     
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-slate-400 uppercase text-[10px]">Seleccionar Pasante</label>
-                        <select name="pasante_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-red-500 font-medium">
-                            <option value="">Elige un pasante...</option>
-                            {% for p in pasantes %}<option value="{{ p.id }}">{{ p.nombre_completo }}</option>{% endfor %}
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-semibold text-slate-400 uppercase">Seleccionar Pasante</label>
+                        <select name="pasante_id" id="pasante-select" required class="w-full text-xs md:text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 md:py-2.5 outline-none focus:border-[#cc0000] cursor-pointer">
+                            <option value="" disabled selected>Elige un pasante...</option>
+                            {% for p in pasantes %}
+                                <option value="{{ p.id }}" data-area="{{ p.area }}" data-supervisores="{% for s in p.supervisores.all %}{{ s.first_name }} {{ s.last_name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                                    {{ p.nombre_completo }}
+                                </option>
+                            {% endfor %}
                         </select>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-slate-400 uppercase text-[10px]">Día a aplicar</label>
-                            <select name="dia" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-red-500 font-medium">
-                                <option value="LV" class="font-bold text-slate-800">Lunes a Viernes</option>
-                                <option disabled>── Días específicos ──</option>
-                                <option value="LU">Lunes</option><option value="MA">Martes</option><option value="MI">Miércoles</option><option value="JU">Jueves</option><option value="VI">Viernes</option><option value="SA">Sábado</option>
+                    <div id="pasante-info" class="hidden bg-rose-50 border border-rose-200 p-3 rounded-xl mt-1 flex flex-col gap-2">
+                        <div class="flex items-center gap-2 font-bold text-[10px] uppercase text-[#cc0000] border-b border-rose-200 pb-1.5">
+                            <i class="fa-solid fa-address-card"></i> Datos Corporativos
+                        </div>
+                        <div class="grid grid-cols-1 gap-2 mt-1">
+                            <div>
+                                <p class="text-[9px] font-bold text-slate-400 uppercase">Área Destino:</p>
+                                <p id="info-area" class="text-xs font-semibold text-slate-700 mt-0.5">-</p>
+                            </div>
+                            <div>
+                                <p class="text-[9px] font-bold text-slate-400 uppercase">Supervisores:</p>
+                                <p id="info-sups" class="text-xs font-semibold text-slate-700 mt-0.5">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-semibold text-slate-400 uppercase">Día a Aplicar</label>
+                            <select name="dia" required class="w-full text-xs md:text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 md:py-2.5 outline-none focus:border-[#cc0000] cursor-pointer">
+                                <option value="LV">Lunes a Viernes (Todos)</option>
+                                <option value="LU">Solo Lunes</option>
+                                <option value="MA">Solo Martes</option>
+                                <option value="MI">Solo Miércoles</option>
+                                <option value="JU">Solo Jueves</option>
+                                <option value="VI">Solo Viernes</option>
+                                <option value="SA">Solo Sábado</option>
                             </select>
                         </div>
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-slate-400 uppercase text-[10px]">Turno</label>
-                            <select name="turno" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-red-500 font-medium">
-                                <option value="MAÑANA">Turno Mañana</option><option value="TARDE">Turno Tarde</option>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-semibold text-slate-400 uppercase">Turno</label>
+                            <select name="turno" required class="w-full text-xs md:text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 md:py-2.5 outline-none focus:border-[#cc0000] cursor-pointer">
+                                <option value="MAÑANA">Turno Mañana</option>
+                                <option value="TARDE">Turno Tarde</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col gap-1.5"><label class="text-slate-400 uppercase text-[10px]">Hora Entrada</label><input type="time" name="hora_entrada" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-red-500"/></div>
-                        <div class="flex flex-col gap-1.5"><label class="text-slate-400 uppercase text-[10px]">Hora Salida</label><input type="time" name="hora_salida" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-red-500"/></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-semibold text-slate-400 uppercase">Hora Entrada</label>
+                            <input type="time" name="hora_entrada" required class="w-full text-xs md:text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 md:py-2.5 outline-none focus:border-slate-400 transition-colors"/>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-semibold text-slate-400 uppercase">Hora Salida</label>
+                            <input type="time" name="hora_salida" required class="w-full text-xs md:text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 md:py-2.5 outline-none focus:border-slate-400 transition-colors"/>
+                        </div>
                     </div>
 
-                    <button type="submit" class="bg-[#cc0000] hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all text-center mt-2">Guardar Turno(s)</button>
+                    <button type="submit" class="w-full bg-[#cc0000] hover:bg-red-800 text-white font-bold py-3 px-4 rounded-xl shadow-md text-xs md:text-sm transition-all mt-2">
+                        Guardar Turno(s)
+                    </button>
                 </form>
             </div>
 
-            <div class="col-span-3 flex flex-col gap-3">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-list mr-1"></i> Esquema de Horarios Asignados</span>
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <table class="w-full text-left text-xs border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 border-b border-slate-200 font-bold text-slate-400 uppercase text-[10px] tracking-wider">
-                                <th class="py-3 px-4">Pasante</th><th class="py-3 px-4 text-center">Día</th><th class="py-3 px-4 text-center">Turno</th><th class="py-3 px-4 text-center">Horario</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
-                            {% for t in turnos %}
-                            <tr class="hover:bg-slate-50/50 transition-colors">
-                                <td class="py-3 px-4 font-bold text-slate-900">{{ t.pasante.nombre_completo }}</td>
-                                <td class="py-3 px-4 text-center text-slate-500">{{ t.get_dia_display }}</td>
-                                <td class="py-3 px-4 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold {% if t.turno == 'MAÑANA' %}bg-sky-50 text-sky-700 border border-sky-200{% else %}bg-orange-50 text-orange-700 border border-orange-200{% endif %}">{{ t.turno }}</span></td>
-                                <td class="py-3 px-4 text-center font-bold text-slate-600">{{ t.hora_entrada|time:"H:i" }} a {{ t.hora_salida|time:"H:i" }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="4" class="py-12 text-center text-slate-400 italic">No hay turnos asignados aún.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="w-full xl:w-[65%] flex flex-col gap-4 md:gap-6 mt-4 xl:mt-0">
+                <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-slate-500 xl:mt-8">
+                    <i class="fa-solid fa-list-ul"></i> Esquema de Horarios Asignados
+                </div>
+                
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex-1">
+                    <div class="overflow-x-auto w-full">
+                        <table class="w-full text-left text-[10px] md:text-xs border-collapse min-w-[650px]">
+                            <thead>
+                                <tr class="bg-slate-50 font-bold text-slate-400 uppercase text-[8px] md:text-[9px] tracking-wider border-b border-slate-200">
+                                    <th class="py-3 md:py-4 px-4 md:px-5">Pasante</th>
+                                    <th class="py-3 md:py-4 px-4 md:px-5 text-center">Día</th>
+                                    <th class="py-3 md:py-4 px-4 md:px-5 text-center">Turno</th>
+                                    <th class="py-3 md:py-4 px-4 md:px-5 text-center">Horario</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
+                                {% if turnos %}
+                                    {% for turno in turnos %}
+                                    <tr class="hover:bg-slate-50/50 transition-colors">
+                                        <td class="py-3 md:py-4 px-4 md:px-5">
+                                            <p class="font-bold text-slate-800 text-xs md:text-sm">{{ turno.pasante.nombre_completo }}</p>
+                                            <p class="text-[8px] md:text-[9px] text-[#cc0000] font-bold mt-1 uppercase">{{ turno.pasante.area }}</p>
+                                        </td>
+                                        <td class="py-3 md:py-4 px-4 md:px-5 text-center font-bold text-slate-600">{{ turno.get_dia_display }}</td>
+                                        <td class="py-3 md:py-4 px-4 md:px-5 text-center">
+                                            <span class="text-[9px] font-bold px-2 py-1 rounded-lg uppercase tracking-wide border {% if turno.turno == 'MAÑANA' %} bg-amber-50 text-amber-700 border-amber-200 {% else %} bg-indigo-50 text-indigo-700 border-indigo-200 {% endif %}">
+                                                {{ turno.turno }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3 md:py-4 px-4 md:px-5 text-center font-black text-slate-600">
+                                            {{ turno.hora_entrada|time:"H:i" }} - {{ turno.hora_salida|time:"H:i" }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="4" class="py-12 px-5 text-center text-slate-400 text-sm italic">
+                                            No hay turnos asignados aún.
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const pasanteSelect = document.getElementById('pasante-select');
+        const infoDiv = document.getElementById('pasante-info');
+        const infoArea = document.getElementById('info-area');
+        const infoSups = document.getElementById('info-sups');
+
+        if (pasanteSelect) {
+            pasanteSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                
+                if (selectedOption.value) {
+                    const area = selectedOption.getAttribute('data-area') || 'Área no asignada';
+                    const sups = selectedOption.getAttribute('data-supervisores') || 'Sin supervisores asignados';
+                    
+                    infoArea.innerText = area;
+                    infoSups.innerText = sups;
+                    
+                    // Mostrar la tarjeta animada
+                    infoDiv.classList.remove('hidden');
+                } else {
+                    infoDiv.classList.add('hidden');
+                }
+            });
+        }
+    });
+    </script>
 </body>
 </html>

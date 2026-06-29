@@ -1,8 +1,8 @@
 import os
 import csv
 import json
-import datetime  
-from datetime import datetime, date
+import datetime
+from datetime import datetime, date, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
@@ -125,8 +125,8 @@ def importar_datos_csv(request):
             lector = csv.reader(contenido, delimiter=separador)
             lineas = list(lector)
             indice_inicio = 0
-            for i, fila in enumerate(lineas):
-                if fila and str(fila[0]).strip().lower() == 'fecha':
+            for i, enumerate_fila in enumerate(lineas):
+                if enumerate_fila and str(enumerate_fila[0]).strip().lower() == 'fecha':
                     indice_inicio = i + 1
                     break
 
@@ -243,7 +243,6 @@ def index_dashboard(request):
         return render(request, 'espera_aprobacion.html')
     return redirect('panel_supervisor')
 
-# --- MAGIA DE LOS CÁLCULOS DEL DASHBOARD CORREGIDA ---
 @login_required
 def panel_supervisor(request):
     if not tiene_acceso_al_sistema(request.user):
@@ -267,21 +266,34 @@ def panel_supervisor(request):
     alertas_tardanza = 0
     marcas_por_pasante = {}
     
-    # Agrupamos todas las marcas por cada pasante
+    dias_semana_codigo = {0: 'LU', 1: 'MA', 2: 'MI', 3: 'JU', 4: 'VI', 5: 'SA', 6: 'DO'}
+    codigo_hoy = dias_semana_codigo[date.today().weekday()]
+
+    turnos_hoy = TurnoPasante.objects.filter(pasante__in=pasantes, dia=codigo_hoy)
+    dict_turnos = {t.pasante_id: t for t in turnos_hoy}
+
     for m in asistencias:
         if m.pasante_id not in marcas_por_pasante:
             marcas_por_pasante[m.pasante_id] = []
         marcas_por_pasante[m.pasante_id].append(m)
-        if m.tipo == 'ENTRADA' and m.hora > datetime.strptime('08:15', '%H:%M').time():
-            alertas_tardanza += 1
+        
+        # LÓGICA DE TARDANZA CORREGIDA (FLEXIBLE VS FIJO)
+        if m.tipo == 'ENTRADA':
+            turno_oficial = dict_turnos.get(m.pasante_id)
+            if turno_oficial:
+                # Si tiene turno fijo, revisa con tolerancia de 15 min
+                dt_entrada_oficial = datetime.combine(date.today(), turno_oficial.hora_entrada)
+                limite_tolerancia = (dt_entrada_oficial + timedelta(minutes=15)).time()
+                if m.hora > limite_tolerancia:
+                    alertas_tardanza += 1
+            # Si NO tiene turno, asumimos horario FLEXIBLE y NO genera alerta de tardanza
 
     presentes_ahora = 0
-    presentes_hoy_count = len(marcas_por_pasante) # Cuántas personas únicas vinieron hoy
+    presentes_hoy_count = len(marcas_por_pasante)
 
     for pid, marcas in marcas_por_pasante.items():
         marcas_asc = sorted(marcas, key=lambda x: x.hora)
         
-        # SI LA ÚLTIMA MARCA FUE ENTRADA, SIGNIFICA QUE SIGUEN AQUÍ
         if marcas_asc[-1].tipo == 'ENTRADA':
             presentes_ahora += 1
 
@@ -298,17 +310,18 @@ def panel_supervisor(request):
 
     context = {
         'pasantes': pasantes, 
-        'asistencias': asistencias, # Esto alimenta la lista de Actividad Reciente
+        'asistencias': asistencias, 
         'asistencias_pendientes': pendientes,
         'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
         'horas_hoy': round(horas_hoy, 1),
         'alertas_tardanza': alertas_tardanza,
-        'presentes_ahora': presentes_ahora,           # NUEVO: Cálculo exacto
-        'presentes_hoy_count': presentes_hoy_count,   # NUEVO: Únicos de hoy
+        'presentes_ahora': presentes_ahora,
+        'presentes_hoy_count': presentes_hoy_count,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
         'puede_asignar': puede_asignar
     }
     return render(request, 'panel_del_supervisor_marca_actualizada/code.html', context)
+
 
 @login_required
 def listado_detallado(request):
