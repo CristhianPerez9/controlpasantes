@@ -194,17 +194,6 @@ def registrar_asistencia(request):
                         messages.warning(request, f"Salida registrada. Al exceder las 16:15 se guardó como pendiente de aprobación por su supervisor.")
                     else:
                         messages.success(request, f"¡Marca de SALIDA registrada con éxito para {pasante.nombre_completo}!")
-                        
-                    horas_hechas = calcular_horas_pasante(pasante)
-                    horas_restantes = float(pasante.horas_requeridas) - horas_hechas
-                    if 24 <= horas_restantes <= 30:
-                        asunto_fin = f"🎓 AVISO: Conclusión de Pasantía Próxima - {pasante.nombre_completo}"
-                        cuerpo_fin = f"Estimado(a) {nombre_sup},\n\n" \
-                                     f"Le informamos que el pasante {pasante.nombre_completo} está en su semana final de pasantía.\n" \
-                                     f"Total requerido: {pasante.horas_requeridas} hrs\n" \
-                                     f"Horas restantes aproximadas: {round(horas_restantes, 1)} hrs.\n\n" \
-                                     f"Por favor, prepare la evaluación de desempeño correspondiente con RRHH.\n\nSistema TI COMTECO."
-                        send_mail(asunto_fin, cuerpo_fin, 'asistencia.pasantes@comteco.com.bo', correos, fail_silently=True)
                 else:
                     if estado_registro == 'PENDIENTE':
                         messages.warning(request, f"Salida registrada fuera de horario regular. Pendiente de aprobación.")
@@ -235,7 +224,9 @@ def decidir_horas_extra(request, marca_id, accion):
             marca.estado = 'RECHAZADO'
             marca.save()
             messages.warning(request, f"Marcación extraordinaria de {marca.pasante.nombre_completo} rechazada.")
-    return redirect('panel_supervisor')
+            
+    referer = request.META.get('HTTP_REFERER', '/')
+    return redirect(referer)
 
 @login_required
 def index_dashboard(request):
@@ -277,16 +268,13 @@ def panel_supervisor(request):
             marcas_por_pasante[m.pasante_id] = []
         marcas_por_pasante[m.pasante_id].append(m)
         
-        # LÓGICA DE TARDANZA CORREGIDA (FLEXIBLE VS FIJO)
         if m.tipo == 'ENTRADA':
             turno_oficial = dict_turnos.get(m.pasante_id)
             if turno_oficial:
-                # Si tiene turno fijo, revisa con tolerancia de 15 min
                 dt_entrada_oficial = datetime.combine(date.today(), turno_oficial.hora_entrada)
                 limite_tolerancia = (dt_entrada_oficial + timedelta(minutes=15)).time()
                 if m.hora > limite_tolerancia:
                     alertas_tardanza += 1
-            # Si NO tiene turno, asumimos horario FLEXIBLE y NO genera alerta de tardanza
 
     presentes_ahora = 0
     presentes_hoy_count = len(marcas_por_pasante)
@@ -484,7 +472,20 @@ def lista_pasantes(request):
             areas_brutas = [u.perfil.unidad for u in todos_los_usuarios if hasattr(u, 'perfil') and u.perfil.unidad]
             areas_disponibles = sorted(list(set(areas_brutas)))
 
-    if request.method == 'POST':
+    if request.method == 'POST' and 'btn_guardar_nota' in request.POST:
+        pasante_id = request.POST.get('pasante_id_modal')
+        nota_final = request.POST.get('nota_final')
+        if pasante_id and nota_final:
+            try:
+                p_obj = Pasante.objects.get(id=pasante_id)
+                p_obj.nota_final = int(nota_final)
+                p_obj.save()
+                messages.success(request, f"¡Calificación de {p_obj.nombre_completo} guardada exitosamente y archivada!")
+            except Pasante.DoesNotExist:
+                messages.error(request, "Error: No se encontró al pasante.")
+        return redirect('lista_pasantes')
+
+    if request.method == 'POST' and 'btn_guardar_nota' not in request.POST:
         ci = request.POST.get('ci')
         nombre = request.POST.get('nombre_completo')
         f_inicio = request.POST.get('fecha_inicio')
@@ -528,6 +529,7 @@ def lista_pasantes(request):
         pasantes_queryset = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
         
     lista_con_calculos = []
+    hoy = date.today()
     for p in pasantes_queryset:
         horas_hechas_redond = calcular_horas_pasante(p)
         horas_req_float = float(p.horas_requeridas)
@@ -535,11 +537,21 @@ def lista_pasantes(request):
         porcentaje = 0
         if horas_req_float > 0:
             porcentaje = min(100, int((horas_hechas_redond / horas_req_float) * 100))
-        alerta_conclusion = horas_restantes <= 30
+        
+        dias_restantes = (p.fecha_fin - hoy).days
+        
+        alerta_conclusion = horas_restantes <= 20 
+        
+        marca_pendiente = RegistroAsistencia.objects.filter(pasante=p, estado='PENDIENTE').order_by('-fecha', '-hora').first()
+
         lista_con_calculos.append({
-            'objeto': p, 'horas_hechas': horas_hechas_redond,
-            'horas_restantes': horas_restantes, 'porcentaje': porcentaje,
-            'alerta_conclusion': alerta_conclusion
+            'objeto': p, 
+            'horas_hechas': horas_hechas_redond,
+            'horas_restantes': horas_restantes, 
+            'porcentaje': porcentaje,
+            'dias_restantes': dias_restantes,
+            'alerta_conclusion': alerta_conclusion,
+            'marca_pendiente': marca_pendiente
         })
         
     mapa_supervisores_json = json.dumps(mapa_supervisores)
