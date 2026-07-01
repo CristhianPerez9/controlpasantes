@@ -26,6 +26,8 @@ urlpatterns = [
     
     # NUEVA RUTA: Recibe la ID de la marca y la acción ('aprobar' o 'rechazar')
     path('asistencia/decidir/<int:marca_id>/<str:accion>/', views.decidir_horas_extra, name='decidir_horas_extra'),
+   # NUEVA RUTA: para los pasantes
+    path('portal/', views.portal_pasante, name='portal_pasante'),
 ]
 
 if settings.DEBUG:

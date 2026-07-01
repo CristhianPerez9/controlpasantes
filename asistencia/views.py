@@ -244,7 +244,6 @@ def panel_supervisor(request):
     perfil = getattr(supervisor_actual, 'perfil', None)
     mi_unidad = perfil.unidad if perfil else "Sin Área"
     
-    # 1. OBTENER DATOS BASE
     if puede_asignar:
         pasantes = Pasante.objects.all().order_by('nombre_completo')
         asistencias = RegistroAsistencia.objects.filter(fecha=date.today()).select_related('pasante').order_by('-hora')
@@ -254,7 +253,6 @@ def panel_supervisor(request):
         asistencias = RegistroAsistencia.objects.filter(pasante__in=pasantes, fecha=date.today()).select_related('pasante').order_by('-hora')
         pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE', pasante__supervisores=supervisor_actual).select_related('pasante').order_by('-fecha', '-hora').distinct()
 
-    # 2. CALCULAR MÉTRICAS DEL DÍA
     horas_hoy = 0.0
     alertas_tardanza = 0
     marcas_por_pasante = {}
@@ -277,7 +275,7 @@ def panel_supervisor(request):
                 if m.hora > limite_tolerancia:
                     alertas_tardanza += 1
 
-    # 3. CONSOLIDAR RADAR Y CONTAR LOS QUE ESTÁN "EN OFICINA AHORA"
+    # --- CORRECCIÓN 1: SE INICIALIZA LA LISTA DEL RADAR ---
     radar_presentes = []
     en_oficina_count = 0
     presentes_hoy_count = len(marcas_por_pasante) 
@@ -304,19 +302,14 @@ def panel_supervisor(request):
         
     radar_presentes.sort(key=lambda x: x['nombre'])
 
-    # 3.5 OBTENER LISTA EXACTA DE AUSENTES (NUEVO)
     pasantes_ausentes = []
     for p in pasantes:
-        # Solo contamos como ausentes a los que NO marcaron y que siguen ACTIVOS (sin nota final)
         if not p.nota_final and p.id not in marcas_por_pasante:
             pasantes_ausentes.append(p)
             
     pasantes_ausentes.sort(key=lambda x: x.nombre_completo)
 
-    # 4. DISTRIBUCIÓN POR ÁREAS PARA EL GRÁFICO
     distribucion_areas = {}
-    
-    # 5. RANKING DE AVANCE (TOP 5)
     ranking_pasantes = []
     total_activos_reales = 0
 
@@ -351,9 +344,9 @@ def panel_supervisor(request):
         'alertas_tardanza': alertas_tardanza,
         'presentes_hoy_count': presentes_hoy_count,
         'en_oficina_count': en_oficina_count, 
-        'ausentes_hoy_count': len(pasantes_ausentes), # Ahora usa la cuenta exacta
-        'pasantes_ausentes': pasantes_ausentes,       # Pasamos la lista al HTML
-        'total_activos': total_activos_reales,        # Excluye a los archivados
+        'ausentes_hoy_count': len(pasantes_ausentes), 
+        'pasantes_ausentes': pasantes_ausentes,       
+        'total_activos': total_activos_reales,        
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
         'puede_asignar': puede_asignar,
         'top_5_pasantes': top_5_pasantes,
@@ -659,7 +652,71 @@ def gestionar_turnos(request):
     }
     return render(request, 'gestionar_turnos_marca_actualizada/code.html', context)
 
-@login_required
+def portal_pasante(request):
+    context = {}
+    if request.method == 'POST':
+        ci_digitado = request.POST.get('ci', '').strip()
+        if ci_digitado:
+            try:
+                pasante = Pasante.objects.get(ci=ci_digitado)
+                
+                horas_hechas = calcular_horas_pasante(pasante)
+                horas_req = float(pasante.horas_requeridas)
+                horas_restantes = max(0.0, round(horas_req - horas_hechas, 1))
+                porcentaje = min(100, int((horas_hechas / horas_req) * 100)) if horas_req > 0 else 0
+                
+                hoy = date.today()
+                dias_restantes = (pasante.fecha_fin - hoy).days
+                
+                # --- CORRECCIÓN 2: CÁLCULO POSITIVO DE DÍAS VENCIDOS DESDE PYTHON ---
+                dias_vencidos = abs(dias_restantes) if dias_restantes < 0 else 0
+                
+                turnos = TurnoPasante.objects.filter(pasante=pasante)
+                dict_turnos = {t.dia: t for t in turnos}
+                dias_semana_codigo = {0: 'LU', 1: 'MA', 2: 'MI', 3: 'JU', 4: 'VI', 5: 'SA', 6: 'DO'}
+                
+                marcas_entrada = RegistroAsistencia.objects.filter(pasante=pasante, tipo='ENTRADA')
+                total_tardanzas = 0
+                for m in marcas_entrada:
+                    cod_dia = dias_semana_codigo[m.fecha.weekday()]
+                    turno = dict_turnos.get(cod_dia)
+                    if turno:
+                        dt_oficial = datetime.combine(date.today(), turno.hora_entrada)
+                        limite = (dt_oficial + timedelta(minutes=15)).time()
+                        if m.hora > limite:
+                            total_tardanzas += 1
+                            
+                if pasante.nota_final:
+                    semaforo_color = "bg-emerald-500 shadow-[0_0_12px_#10b981]"
+                    semaforo_texto = "Pasantía Finalizada y Archivada Oficialmente"
+                elif dias_restantes < 0:
+                    semaforo_color = "bg-red-500 shadow-[0_0_12px_#ef4444] animate-pulse"
+                    semaforo_texto = "Alerta: Período de Contrato Vencido"
+                elif horas_restantes <= 20:
+                    semaforo_color = "bg-amber-500 shadow-[0_0_12px_#f59e0b] animate-pulse"
+                    semaforo_texto = "Etapa Crítica Final (¡Preparar Informe de Conclusión!)"
+                else:
+                    semaforo_color = "bg-emerald-400 shadow-[0_0_12px_#34d399]"
+                    semaforo_texto = "Curso Regular Activo"
+                    
+                context = {
+                    'pasante': pasante,
+                    'horas_hechas': horas_hechas,
+                    'horas_restantes': horas_restantes,
+                    'porcentaje': porcentaje,
+                    'dias_restantes': dias_restantes,
+                    'dias_vencidos': dias_vencidos, # Enviamos la variable ya calculada y positiva
+                    'total_tardanzas': total_tardanzas,
+                    'semaforo_color': semaforo_color,
+                    'semaforo_texto': semaforo_texto,
+                }
+            except Pasante.DoesNotExist:
+                context = {'error_msg': "El Carnet de Identidad digitado no está registrado."}
+        else:
+            context = {'error_msg': "Por favor, introduzca su documento de identidad."}
+            
+    return render(request, 'portal_pasante/code.html', context)
+
 def cerrar_sesion(request):
     logout(request)
     return redirect('login')
