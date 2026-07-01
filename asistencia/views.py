@@ -244,22 +244,23 @@ def panel_supervisor(request):
     perfil = getattr(supervisor_actual, 'perfil', None)
     mi_unidad = perfil.unidad if perfil else "Sin Área"
     
+    # 1. OBTENER DATOS BASE
     if puede_asignar:
-        pasantes = Pasante.objects.all()
+        pasantes = Pasante.objects.all().order_by('nombre_completo')
         asistencias = RegistroAsistencia.objects.filter(fecha=date.today()).select_related('pasante').order_by('-hora')
         pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE').select_related('pasante').order_by('-fecha', '-hora')
     else:
-        pasantes = Pasante.objects.filter(supervisores=supervisor_actual)
+        pasantes = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
         asistencias = RegistroAsistencia.objects.filter(pasante__in=pasantes, fecha=date.today()).select_related('pasante').order_by('-hora')
         pendientes = RegistroAsistencia.objects.filter(estado='PENDIENTE', pasante__supervisores=supervisor_actual).select_related('pasante').order_by('-fecha', '-hora').distinct()
 
+    # 2. CALCULAR MÉTRICAS DEL DÍA
     horas_hoy = 0.0
     alertas_tardanza = 0
     marcas_por_pasante = {}
     
     dias_semana_codigo = {0: 'LU', 1: 'MA', 2: 'MI', 3: 'JU', 4: 'VI', 5: 'SA', 6: 'DO'}
     codigo_hoy = dias_semana_codigo[date.today().weekday()]
-
     turnos_hoy = TurnoPasante.objects.filter(pasante__in=pasantes, dia=codigo_hoy)
     dict_turnos = {t.pasante_id: t for t in turnos_hoy}
 
@@ -276,40 +277,90 @@ def panel_supervisor(request):
                 if m.hora > limite_tolerancia:
                     alertas_tardanza += 1
 
-    presentes_ahora = 0
-    presentes_hoy_count = len(marcas_por_pasante)
-
+    # 3. CONSOLIDAR RADAR Y CONTAR LOS QUE ESTÁN "EN OFICINA AHORA"
+    radar_presentes = []
+    en_oficina_count = 0
+    presentes_hoy_count = len(marcas_por_pasante) 
+    
     for pid, marcas in marcas_por_pasante.items():
         marcas_asc = sorted(marcas, key=lambda x: x.hora)
+        ultima_marca = marcas_asc[-1]
+        pasante_obj = ultima_marca.pasante
         
-        if marcas_asc[-1].tipo == 'ENTRADA':
-            presentes_ahora += 1
+        if ultima_marca.tipo == 'ENTRADA':
+            estado_actual = "Activo en Oficina"
+            color_bg = "bg-emerald-100 text-emerald-700 border border-emerald-200"
+            en_oficina_count += 1
+        else:
+            estado_actual = "Jornada Finalizada"
+            color_bg = "bg-slate-100 text-slate-500 border border-slate-200"
+            
+        radar_presentes.append({
+            'nombre': pasante_obj.nombre_completo,
+            'area': pasante_obj.area or "Sin Área",
+            'estado': estado_actual,
+            'color': color_bg
+        })
+        
+    radar_presentes.sort(key=lambda x: x['nombre'])
 
-        entrada = None
-        for m in marcas_asc:
-            if m.tipo == 'ENTRADA':
-                entrada = m.hora.replace(second=0, microsecond=0)
-            elif m.tipo == 'SALIDA' and m.estado == 'APROBADO' and entrada is not None:
-                salida_limpia = m.hora.replace(second=0, microsecond=0)
-                dt_entrada = datetime.combine(date.today(), entrada)
-                dt_salida = datetime.combine(date.today(), salida_limpia)
-                horas_hoy += (dt_salida - dt_entrada).total_seconds() / 3600.0
-                entrada = None
+    # 3.5 OBTENER LISTA EXACTA DE AUSENTES (NUEVO)
+    pasantes_ausentes = []
+    for p in pasantes:
+        # Solo contamos como ausentes a los que NO marcaron y que siguen ACTIVOS (sin nota final)
+        if not p.nota_final and p.id not in marcas_por_pasante:
+            pasantes_ausentes.append(p)
+            
+    pasantes_ausentes.sort(key=lambda x: x.nombre_completo)
+
+    # 4. DISTRIBUCIÓN POR ÁREAS PARA EL GRÁFICO
+    distribucion_areas = {}
+    
+    # 5. RANKING DE AVANCE (TOP 5)
+    ranking_pasantes = []
+    total_activos_reales = 0
+
+    for p in pasantes:
+        if not p.nota_final:
+            total_activos_reales += 1
+            area_nombre = p.area or 'Sin Área Especificada'
+            distribucion_areas[area_nombre] = distribucion_areas.get(area_nombre, 0) + 1
+            
+            h_hechas = calcular_horas_pasante(p)
+            h_req = float(p.horas_requeridas)
+            pct = min(100, int((h_hechas / h_req) * 100)) if h_req > 0 else 0
+            ranking_pasantes.append({
+                'nombre': p.nombre_completo,
+                'area': area_nombre,
+                'porcentaje': pct,
+                'hechas': h_hechas,
+                'req': h_req
+            })
+
+    ranking_pasantes.sort(key=lambda x: x['porcentaje'], reverse=True)
+    top_5_pasantes = ranking_pasantes[:5]
+
+    nombres_areas_json = json.dumps(list(distribucion_areas.keys()))
+    cantidades_areas_json = json.dumps(list(distribucion_areas.values()))
 
     context = {
         'pasantes': pasantes, 
-        'asistencias': asistencias, 
+        'radar_presentes': radar_presentes,
         'asistencias_pendientes': pendientes,
         'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
-        'horas_hoy': round(horas_hoy, 1),
         'alertas_tardanza': alertas_tardanza,
-        'presentes_ahora': presentes_ahora,
         'presentes_hoy_count': presentes_hoy_count,
+        'en_oficina_count': en_oficina_count, 
+        'ausentes_hoy_count': len(pasantes_ausentes), # Ahora usa la cuenta exacta
+        'pasantes_ausentes': pasantes_ausentes,       # Pasamos la lista al HTML
+        'total_activos': total_activos_reales,        # Excluye a los archivados
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
-        'puede_asignar': puede_asignar
+        'puede_asignar': puede_asignar,
+        'top_5_pasantes': top_5_pasantes,
+        'nombres_areas_json': nombres_areas_json,
+        'cantidades_areas_json': cantidades_areas_json
     }
     return render(request, 'panel_del_supervisor_marca_actualizada/code.html', context)
-
 
 @login_required
 def listado_detallado(request):
@@ -539,9 +590,7 @@ def lista_pasantes(request):
             porcentaje = min(100, int((horas_hechas_redond / horas_req_float) * 100))
         
         dias_restantes = (p.fecha_fin - hoy).days
-        
         alerta_conclusion = horas_restantes <= 20 
-        
         marca_pendiente = RegistroAsistencia.objects.filter(pasante=p, estado='PENDIENTE').order_by('-fecha', '-hora').first()
 
         lista_con_calculos.append({

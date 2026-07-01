@@ -4,10 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control de Supervisor - COMTECO</title>
+    <title>Panel de Control - COMTECO</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>body { font-family: 'Inter', sans-serif; }</style>
 </head>
 <body class="bg-[#f4f5f6] min-h-screen flex flex-col">
@@ -17,13 +18,11 @@
             <img src="{% static 'logo.png' %}" alt="Logo" class="h-6 w-6 md:h-7 md:w-7 object-contain">
             <h1 class="text-xs md:text-sm font-bold text-[#cc0000] tracking-tight">COMTECO <span class="text-slate-500 font-medium">Pasantes</span></h1>
         </div>
-        
         <div class="flex items-center text-slate-500 text-sm">
             <div class="flex items-center gap-2 border-r border-slate-200 pr-3 md:pr-4 mr-3 md:mr-4">
                 <i class="fa-regular fa-user-circle text-lg md:text-xl"></i>
                 <span class="text-[10px] md:text-xs font-semibold truncate max-w-[100px] md:max-w-none">{{ supervisor_nombre_completo }}</span>
             </div>
-            
             <a href="{% url 'logout' %}" class="text-slate-400 hover:text-[#cc0000] transition-colors flex items-center gap-1.5" title="Cerrar Sesión">
                 <i class="fa-solid fa-arrow-right-from-bracket text-lg"></i>
                 <span class="hidden md:inline text-xs font-bold">Salir</span>
@@ -34,156 +33,243 @@
     <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
         
         <aside class="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-4 flex flex-col justify-between shrink-0 overflow-y-auto md:max-h-full max-h-[40vh]">
-            <div class="flex flex-col gap-4 md:gap-6">
+            <div class="flex flex-col gap-4">
                 <div class="px-2 pt-2 hidden md:block">
-                    <h2 class="text-xs font-bold text-[#cc0000] uppercase tracking-wider">Administración</h2>
+                    <h2 class="text-xs font-black text-[#cc0000] uppercase tracking-wider">Administración</h2>
                     <p class="text-[10px] text-slate-400">Control de Pasantías</p>
                 </div>
-                <nav class="flex md:flex-col flex-row flex-wrap gap-2 text-xs font-semibold text-slate-600 justify-center md:justify-start">
-                    <a href="{% url 'panel_supervisor' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 rounded-xl bg-[#cc0000] text-white shadow-md flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-table-cells-large text-sm"></i> Panel Control</a>
-                    <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 rounded-xl hover:bg-slate-100 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-users text-sm"></i> Lista Pasantes</a>
-                    <a href="{% url 'listado_detallado' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 rounded-xl hover:bg-slate-100 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-clock-rotate-left text-sm"></i> Control Asistencia</a>
-                    <a href="{% url 'generacion_reportes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 rounded-xl hover:bg-slate-100 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-file-invoice text-sm"></i> Generar Reportes</a>
+                <nav class="flex md:flex-col flex-row flex-wrap gap-2 text-xs font-semibold text-slate-600 md:mt-2 justify-center md:justify-start">
+                    <a href="{% url 'panel_supervisor' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl bg-[#cc0000] text-white shadow-md transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-table-cells-large text-sm w-4"></i> Panel Control</a>
+                    <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-users text-sm w-4"></i> Lista Pasantes</a>
+                    <a href="{% url 'listado_detallado' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-clock-rotate-left text-sm w-4"></i> Control Asistencia</a>
+                    <a href="{% url 'generacion_reportes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-file-invoice text-sm w-4"></i> Generar Reportes</a>
                 </nav>
             </div>
-            <a href="{% url 'registrar_asistencia' %}" class="mt-4 md:mt-0 bg-[#cc0000] hover:bg-red-700 text-white text-xs font-bold py-3 px-4 rounded-xl text-center block shadow-md transition-all"><i class="fa-solid fa-right-to-bracket mr-1"></i> Registrar Entrada</a>
+            <a href="{% url 'registrar_asistencia' %}" class="mt-4 md:mt-0 bg-[#cc0000] hover:bg-red-800 text-white text-xs font-bold py-3 px-4 rounded-xl text-center shadow-md transition-colors block"><i class="fa-solid fa-right-to-bracket mr-1"></i> Registrar Entrada</a>
         </aside>
 
-        <main class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-6">
+        <main class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-6 bg-[#f4f5f6]">
             
             <div>
-                <h2 class="text-xl md:text-2xl font-bold text-slate-800">Panel de Control de Supervisor</h2>
-                <p class="text-xs md:text-sm text-slate-400 mt-0.5">Resumen operativo y métricas de asistencia para hoy.</p>
-                
-                {% if messages %}
-                <div class="mt-4 flex flex-col gap-2">
-                    {% for message in messages %}
-                        <div class="px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 {% if message.tags == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% elif message.tags == 'warning' %}bg-amber-50 text-amber-700 border border-amber-200{% else %}bg-rose-50 text-rose-700 border border-rose-200{% endif %}">
-                            <i class="fa-solid {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-xmark{% endif %}"></i>
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
+                <h2 class="text-xl md:text-2xl font-bold text-slate-800">Panel de Control</h2>
+                <p class="text-xs md:text-sm text-slate-500 mt-1">Resumen en tiempo real del área: <strong>{{ mi_unidad }}</strong></p>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 
-                <a href="{% url 'lista_pasantes' %}" class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md hover:border-[#cc0000]/40 transition-all cursor-pointer group">
-                    <div>
-                        <p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider group-hover:text-[#cc0000] transition-colors">Total Pasantes</p>
-                        <h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{{ pasantes.count }}</h3>
+                <a href="{% url 'lista_pasantes' %}" class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2 cursor-pointer hover:-translate-y-1 hover:shadow-md hover:border-blue-500 transition-all duration-300 group">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-blue-500 transition-colors">Activos</p>
+                        <i class="fa-solid fa-users text-blue-500 bg-blue-50 p-2 rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-colors"></i>
                     </div>
-                    <div class="w-10 h-10 bg-rose-50 text-[#cc0000] rounded-xl flex items-center justify-center text-lg group-hover:bg-[#cc0000] group-hover:text-white transition-colors">
-                        <i class="fa-solid fa-users"></i>
-                    </div>
-                </a>
-                
-                <a href="{% url 'listado_detallado' %}" class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-md hover:border-emerald-500/40 transition-all cursor-pointer group">
-                    <div>
-                        <p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider group-hover:text-emerald-600 transition-colors">Presentes Ahora</p>
-                        <h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{{ presentes_ahora }}</h3>
-                    </div>
-                    <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                        <i class="fa-solid fa-circle-check"></i>
-                    </div>
+                    <p class="text-2xl md:text-3xl font-black text-slate-800">{{ total_activos }}</p>
                 </a>
 
-                <div class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between bg-red-50/20">
-                    <div><p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Alertas Tardanza</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{% if alertas_tardanza < 10 %}0{% endif %}{{ alertas_tardanza }}</h3></div>
-                    <div class="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                </div>
-                
-                <div class="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-                    <div><p class="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider">Horas Hoy</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{{ horas_hoy|default:"0" }}</h3></div>
-                    <div class="w-10 h-10 bg-slate-50 text-slate-600 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-clock"></i></div>
-                </div>
+                <a href="{% url 'listado_detallado' %}" class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2 cursor-pointer hover:-translate-y-1 hover:shadow-md hover:border-emerald-500 transition-all duration-300 group">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-emerald-500 transition-colors">En Oficina Ahora</p>
+                        <i class="fa-solid fa-check text-emerald-500 bg-emerald-50 p-2 rounded-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors"></i>
+                    </div>
+                    <p class="text-2xl md:text-3xl font-black text-slate-800">
+                        {{ en_oficina_count }} 
+                        <span class="text-xs md:text-sm font-bold text-slate-400 block mt-1">de {{ presentes_hoy_count }} que vinieron</span>
+                    </p>
+                </a>
+
+                <button onclick="abrirModalAusentes()" class="w-full text-left bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2 cursor-pointer hover:-translate-y-1 hover:shadow-md hover:border-slate-500 transition-all duration-300 group">
+                    <div class="flex items-center justify-between w-full">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-slate-600 transition-colors">Ausentes</p>
+                        <i class="fa-solid fa-xmark text-slate-400 bg-slate-50 p-2 rounded-lg group-hover:bg-slate-500 group-hover:text-white transition-colors"></i>
+                    </div>
+                    <p class="text-2xl md:text-3xl font-black text-slate-800">{{ ausentes_hoy_count }}</p>
+                </button>
+
+                <a href="{% url 'listado_detallado' %}" class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-2 cursor-pointer hover:-translate-y-1 hover:shadow-md hover:border-amber-500 transition-all duration-300 group">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-amber-500 transition-colors">Tardanzas</p>
+                        <i class="fa-solid fa-clock text-amber-500 bg-amber-50 p-2 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-colors"></i>
+                    </div>
+                    <p class="text-2xl md:text-3xl font-black text-slate-800">{{ alertas_tardanza }}</p>
+                </a>
             </div>
 
-            {% if asistencias_pendientes %}
-            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
-                <h3 class="text-sm font-bold text-amber-800 uppercase tracking-wide flex items-center gap-2 mb-3">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Salidas Pendientes de Aprobación (> 16:15)
-                </h3>
-                <div class="flex flex-col gap-2">
-                    {% for pendiente in asistencias_pendientes %}
-                    <div class="bg-white border border-slate-100 rounded-xl p-4 flex flex-col sm:flex-row justify-between sm:items-center text-sm shadow-sm gap-4">
-                        <div>
-                            <span class="font-bold text-slate-800">{{ pendiente.pasante.nombre_completo }}</span> 
-                            registró salida a las <span class="font-bold text-[#cc0000]">{{ pendiente.hora|time:"H:i" }}</span>.
-                        </div>
-                        <div class="flex gap-2">
-                            <a href="{% url 'decidir_horas_extra' pendiente.id 'aprobar' %}" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-lg transition-colors text-xs flex items-center justify-center">
-                                <i class="fa-solid fa-check mr-1"></i> Aprobar
-                            </a>
-                            <a href="{% url 'decidir_horas_extra' pendiente.id 'rechazar' %}" class="bg-slate-700 hover:bg-slate-800 text-white font-bold px-4 py-2 rounded-lg transition-colors text-xs flex items-center justify-center">
-                                <i class="fa-solid fa-xmark mr-1"></i> Rechazar
-                            </a>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start flex-1">
+            <div class="flex flex-col xl:flex-row gap-6">
                 
-                <div class="col-span-1 lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5 flex flex-col gap-4 min-h-[300px] md:min-h-[400px]">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3"><span class="text-xs md:text-sm font-bold text-slate-700 uppercase tracking-wider"><i class="fa-solid fa-clock-rotate-left text-slate-400 mr-1"></i> Actividad Reciente</span></div>
-                    <div class="flex flex-col gap-3 overflow-y-auto max-h-[250px] md:max-h-[320px]">
-                        {% for marca in asistencias %}
-                        <div class="flex items-center justify-between p-2 md:p-3 rounded-xl hover:bg-slate-50 transition-colors">
-                            <div class="flex items-center gap-2 md:gap-3">
-                                <div class="w-7 h-7 md:w-8 md:h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 text-xs font-bold uppercase">{{ marca.pasante.nombre_completo|slice:"0:1" }}</div>
-                                <div><p class="text-[11px] md:text-xs font-bold text-slate-800 leading-tight">{{ marca.pasante.nombre_completo }}</p><p class="text-[9px] md:text-[10px] text-slate-400 mt-0.5">Marca: {{ marca.hora|time:"H:i A" }}</p></div>
-                            </div>
-                            <span class="text-[9px] md:text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-wide border {% if marca.tipo == 'ENTRADA' %} bg-emerald-50 text-emerald-700 border-emerald-200 {% else %} bg-amber-50 text-amber-700 border-amber-200 {% endif %}">{{ marca.tipo }}</span>
-                        </div>
-                        {% empty %}
-                        <div class="text-center text-slate-400 py-8 md:py-12 text-sm italic">No hay actividad registrada el día de hoy.</div>
-                        {% endfor %}
-                    </div>
-                    <a href="{% url 'listado_detallado' %}" class="text-center text-xs font-bold text-[#cc0000] hover:underline mt-auto border-t border-slate-100 pt-3 block">Ver Historial Completo</a>
-                </div>
-
-                <div class="col-span-1 lg:col-span-3 flex flex-col gap-6">
+                <div class="w-full xl:w-3/5 flex flex-col gap-6">
                     
-                    <div class="bg-[#cc0000] rounded-2xl p-5 md:p-6 text-white shadow-md flex flex-col justify-between min-h-[140px] md:min-h-[160px]">
-                        <div><h4 class="font-bold text-base md:text-lg tracking-tight">Estado del Sistema: Óptimo</h4><p class="text-xs md:text-sm text-rose-100 mt-1">Todos los terminales de registro están operativos. Sincronización activa.</p></div>
-                        <div class="flex flex-col sm:flex-row gap-3 md:gap-4 mt-4">
-                            <a href="{% url 'generacion_reportes' %}" class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 transition-all"><i class="fa-solid fa-file-pdf"></i> Reporte Semanal</a>
-                            {% if puede_asignar %}
-                            <a href="{% url 'gestionar_turnos' %}" class="bg-white text-[#cc0000] text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow transition-all hover:bg-rose-50"><i class="fa-solid fa-gears"></i> Gestionar Turnos</a>
+                    {% if asistencias_pendientes %}
+                    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 md:p-5 shadow-sm">
+                        <h3 class="text-xs font-bold text-[#cc0000] uppercase tracking-wider mb-4 flex items-center gap-2"><i class="fa-solid fa-bell animate-bounce"></i> Aprobaciones Pendientes</h3>
+                        <div class="flex flex-col gap-3">
+                            {% for m in asistencias_pendientes %}
+                            <div class="bg-white border border-rose-100 p-3 rounded-xl flex items-center justify-between shadow-sm">
+                                <div>
+                                    <p class="text-xs font-bold text-slate-800">{{ m.pasante.nombre_completo }}</p>
+                                    <p class="text-[10px] text-slate-500">Marcó salida a las <span class="font-bold text-rose-600">{{ m.hora|time:"H:i" }}</span></p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <a href="{% url 'decidir_horas_extra' m.id 'rechazar' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors">Ignorar</a>
+                                    <a href="{% url 'decidir_horas_extra' m.id 'aprobar' %}" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition-colors">Aprobar</a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                        <div class="p-4 md:p-5 border-b border-slate-100 flex items-center justify-between">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-user-check text-emerald-500 mr-1"></i> Asistencia Consolidada (Hoy)</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-[10px] md:text-xs">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                                        <th class="py-3 px-4 border-b border-slate-200">Pasante</th>
+                                        <th class="py-3 px-4 border-b border-slate-200">Área Asignada</th>
+                                        <th class="py-3 px-4 text-center border-b border-slate-200">Estado Actual</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-slate-600">
+                                    {% if radar_presentes %}
+                                        {% for p in radar_presentes %}
+                                        <tr class="hover:bg-slate-50 transition-colors">
+                                            <td class="py-3 px-4 font-bold text-slate-800">{{ p.nombre }}</td>
+                                            <td class="py-3 px-4 text-[10px] text-slate-500">{{ p.area }}</td>
+                                            <td class="py-3 px-4 text-center">
+                                                <span class="{{ p.color }} font-bold px-2.5 py-1 rounded-md text-[9px] uppercase tracking-wide">
+                                                    {% if p.estado == 'Activo en Oficina' %}
+                                                        <i class="fa-solid fa-circle-dot mr-1 animate-pulse"></i>
+                                                    {% endif %}
+                                                    {{ p.estado }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr><td colspan="3" class="py-8 text-center italic text-slate-400">Nadie ha registrado asistencia el día de hoy.</td></tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full xl:w-2/5 flex flex-col gap-6">
+                    
+                    {% if puede_asignar %}
+                    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 md:p-5 flex flex-col items-center">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 w-full"><i class="fa-solid fa-chart-pie mr-1 text-purple-500"></i> Distribución Corporativa</h3>
+                        <div class="w-full max-w-[250px]">
+                            <canvas id="areasChart"></canvas>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 md:p-5">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4"><i class="fa-solid fa-trophy mr-1 text-amber-500"></i> Próximos a Concluir</h3>
+                        <div class="flex flex-col gap-4">
+                            {% if top_5_pasantes %}
+                                {% for t in top_5_pasantes %}
+                                <div>
+                                    <div class="flex justify-between items-end mb-1">
+                                        <div>
+                                            <p class="text-xs font-bold text-slate-800">{{ t.nombre }}</p>
+                                            <p class="text-[9px] text-slate-400">{{ t.area }}</p>
+                                        </div>
+                                        <p class="text-[10px] font-black text-[#cc0000]">{{ t.porcentaje }}%</p>
+                                    </div>
+                                    <div class="w-full bg-slate-100 rounded-full h-1.5">
+                                        <div class="bg-[#cc0000] h-1.5 rounded-full transition-all duration-1000" style="width: {{ t.porcentaje }}%"></div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-xs italic text-slate-400 text-center py-4">No hay pasantes activos para mostrar.</p>
                             {% endif %}
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div class="bg-[#cc0000] px-4 md:px-5 py-3 text-white text-[10px] md:text-xs font-bold uppercase tracking-wider">Distribución por Departamentos</div>
-                        
-                        <div class="overflow-x-auto w-full">
-                            <table class="w-full text-left border-collapse text-xs min-w-[500px]">
-                                <thead>
-                                    <tr class="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-200 text-[9px] md:text-[10px]">
-                                        <th class="py-3 px-4 md:px-5">Departamento</th>
-                                        <th class="py-3 px-4 md:px-5 text-center">Pasantes</th>
-                                        <th class="py-3 px-4 md:px-5 text-center">Presentes Hoy</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
-                                    <tr class="hover:bg-slate-50/50 transition-colors">
-                                        <td class="py-3 md:py-4 px-4 md:px-5 font-bold text-slate-800">{{ mi_unidad }}</td>
-                                        <td class="py-3 md:py-4 px-4 md:px-5 text-center font-semibold">{{ pasantes.count }}</td>
-                                        <td class="py-3 md:py-4 px-4 md:px-5 text-center font-semibold">{{ presentes_hoy_count }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                    </div>
                 </div>
             </div>
+
         </main>
     </div>
+
+    <div id="modal-ausentes" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-xl border border-slate-100 overflow-hidden flex flex-col animate-scale-up">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider"><i class="fa-solid fa-user-xmark text-slate-500 mr-2"></i> Lista de Ausentes</h3>
+                <button onclick="cerrarModalAusentes()" class="text-slate-400 hover:text-[#cc0000] transition-colors text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="p-6 max-h-[60vh] overflow-y-auto flex flex-col gap-3">
+                {% if pasantes_ausentes %}
+                    {% for ausente in pasantes_ausentes %}
+                    <div class="bg-slate-50 border border-slate-100 p-3 rounded-xl flex flex-col hover:border-slate-300 transition-colors">
+                        <p class="text-sm font-bold text-slate-800">{{ ausente.nombre_completo }}</p>
+                        <p class="text-[10px] text-[#cc0000] font-bold uppercase mt-1"><i class="fa-solid fa-building mr-1"></i> {{ ausente.area|default:"Sin Área" }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-6">
+                        <i class="fa-regular fa-face-smile-wink text-4xl text-emerald-500 mb-3"></i>
+                        <p class="text-sm font-bold text-slate-600">¡Excelente!</p>
+                        <p class="text-xs text-slate-400 mt-1">No hay ninguna ausencia registrada el día de hoy.</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end">
+                <button onclick="cerrarModalAusentes()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow transition-all uppercase">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Control del Modal de Ausentes
+        function abrirModalAusentes() {
+            document.getElementById('modal-ausentes').classList.remove('hidden');
+        }
+        function cerrarModalAusentes() {
+            document.getElementById('modal-ausentes').classList.add('hidden');
+        }
+
+        // Gráfico
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('areasChart');
+            if (ctx) {
+                const labels = {{ nombres_areas_json|safe }};
+                const data = {{ cantidades_areas_json|safe }};
+
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: ['#cc0000', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        cutout: '75%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    font: { family: "'Inter', sans-serif", size: 10 },
+                                    usePointStyle: true,
+                                    padding: 15
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
