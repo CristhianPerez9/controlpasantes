@@ -52,14 +52,28 @@
         <main class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-6 md:gap-8 bg-[#f4f5f6]">
             
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div>
-                    <h2 class="text-xl md:text-2xl font-bold text-slate-800">Control Diario de Asistencia</h2>
+                <div class="flex flex-col gap-2">
+                    
+                    <div class="flex flex-wrap items-center gap-4">
+                        <h2 class="text-xl md:text-2xl font-bold text-slate-800">Control Diario de Asistencia</h2>
+                        
+                        {% if puede_asignar %}
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="?area=Todos{% if pagina_actual %}&page={{ pagina_actual.number }}{% endif %}" class="px-3 md:px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm border {% if area_seleccionada == 'Todos' or not area_seleccionada %}bg-[#cc0000] text-white border-[#cc0000]{% else %}bg-white text-slate-500 border-slate-200 hover:text-[#cc0000] hover:border-[#cc0000]{% endif %}">Todos</a>
+                            
+                            {% for a in areas_disponibles %}
+                                <a href="?area={{ a|urlencode }}{% if pagina_actual %}&page={{ pagina_actual.number }}{% endif %}" class="px-3 md:px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm border {% if area_seleccionada == a %}bg-[#cc0000] text-white border-[#cc0000]{% else %}bg-white text-slate-500 border-slate-200 hover:text-[#cc0000] hover:border-[#cc0000]{% endif %}">{{ a }}</a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
                     <p class="text-xs md:text-sm text-slate-500 mt-1">Supervisión detallada de ingresos y salidas por fecha.</p>
                 </div>
                 
                 <div class="bg-white px-3 md:px-4 py-2 md:py-2.5 rounded-full shadow-sm border border-slate-200 flex items-center gap-4 md:gap-6 w-full sm:w-auto justify-between sm:justify-start">
                     {% if pagina_actual.has_next %}
-                        <a href="?page={{ pagina_actual.next_page_number }}" class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-200 hover:text-slate-800 transition-colors cursor-pointer border border-slate-200">
+                        <a href="?page={{ pagina_actual.next_page_number }}{% if area_seleccionada %}&area={{ area_seleccionada|urlencode }}{% endif %}" class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-200 hover:text-slate-800 transition-colors cursor-pointer border border-slate-200">
                             <i class="fa-solid fa-chevron-left text-xs md:text-sm"></i>
                         </a>
                     {% else %}
@@ -80,7 +94,7 @@
                     </div>
 
                     {% if pagina_actual.has_previous %}
-                        <a href="?page={{ pagina_actual.previous_page_number }}" class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-200 hover:text-slate-800 transition-colors cursor-pointer border border-slate-200">
+                        <a href="?page={{ pagina_actual.previous_page_number }}{% if area_seleccionada %}&area={{ area_seleccionada|urlencode }}{% endif %}" class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-200 hover:text-slate-800 transition-colors cursor-pointer border border-slate-200">
                             <i class="fa-solid fa-chevron-right text-xs md:text-sm"></i>
                         </a>
                     {% else %}
@@ -108,40 +122,51 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
                             {% for r in reportes_asistencia %}
-                            <tr class="hover:bg-slate-50/50 transition-colors">
+                            
+                            <tr class="transition-colors {% if r.estado == 'AUSENTE' %}bg-rose-50/50 hover:bg-rose-100/40{% else %}hover:bg-slate-50/50{% endif %}">
                                 <td class="py-3 md:py-4 px-4 md:px-5">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-rose-50 text-[#cc0000] flex items-center justify-center text-xs font-bold">{{ r.pasante.nombre_completo|slice:"0:1" }}</div>
-                                        <span class="font-bold text-slate-800 text-xs md:text-sm">{{ r.pasante.nombre_completo }}</span>
+                                        <div class="w-7 h-7 md:w-8 md:h-8 rounded-full {% if r.estado == 'AUSENTE' %}bg-slate-200 text-slate-400{% else %}bg-rose-50 text-[#cc0000]{% endif %} flex items-center justify-center text-xs font-bold">{{ r.pasante.nombre_completo|slice:"0:1" }}</div>
+                                        <div class="flex flex-col">
+                                            <span class="font-bold {% if r.estado == 'AUSENTE' %}text-slate-500{% else %}text-slate-800{% endif %} text-xs md:text-sm">{{ r.pasante.nombre_completo }}</span>
+                                            <span class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{{ r.pasante.area }}</span>
+                                        </div>
                                     </div>
                                 </td>
-                                <td class="py-3 md:py-4 px-4 md:px-5 text-center">
-                                    {% if r.entrada %}
-                                        <span class="inline-flex items-center gap-1.5 px-2 md:px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] md:text-xs font-bold"><i class="fa-solid fa-arrow-right-to-bracket"></i> {{ r.entrada|time:"H:i A" }}</span>
-                                    {% else %}
-                                        <span class="text-slate-300 font-bold text-xs">--:--</span>
-                                    {% endif %}
-                                </td>
-                                <td class="py-3 md:py-4 px-4 md:px-5 text-center">
-                                    {% if r.salida %}
-                                        <span class="inline-flex items-center gap-1.5 px-2 md:px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] md:text-xs font-bold"><i class="fa-solid fa-arrow-right-from-bracket"></i> {{ r.salida|time:"H:i A" }}</span>
-                                    {% else %}
-                                        <span class="text-slate-300 font-bold text-xs">--:--</span>
-                                    {% endif %}
-                                </td>
-                                <td class="py-3 md:py-4 px-4 md:px-5 text-center bg-slate-50/30">
-                                    {% if r.horas_dia > 0 %}
-                                        <span class="font-black text-xs md:text-sm {% if r.horas_dia < 4 %}text-[#cc0000]{% else %}text-slate-800{% endif %}">{{ r.horas_dia }} hrs</span>
-                                    {% else %}
-                                        <span class="text-[9px] md:text-[10px] font-bold text-amber-500 uppercase tracking-wide border border-amber-200 bg-amber-50 px-2 py-0.5 rounded">Jornada Incompleta</span>
-                                    {% endif %}
-                                </td>
+                                
+                                {% if r.estado == 'AUSENTE' %}
+                                    <td class="py-3 md:py-4 px-4 md:px-5 text-center" colspan="3">
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest"><i class="fa-solid fa-user-slash"></i> Ausente</span>
+                                    </td>
+                                {% else %}
+                                    <td class="py-3 md:py-4 px-4 md:px-5 text-center">
+                                        {% if r.entrada %}
+                                            <span class="inline-flex items-center gap-1.5 px-2 md:px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] md:text-xs font-bold"><i class="fa-solid fa-arrow-right-to-bracket"></i> {{ r.entrada|time:"H:i A" }}</span>
+                                        {% else %}
+                                            <span class="text-slate-300 font-bold text-xs">--:--</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-3 md:py-4 px-4 md:px-5 text-center">
+                                        {% if r.salida %}
+                                            <span class="inline-flex items-center gap-1.5 px-2 md:px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[10px] md:text-xs font-bold"><i class="fa-solid fa-arrow-right-from-bracket"></i> {{ r.salida|time:"H:i A" }}</span>
+                                        {% else %}
+                                            <span class="text-slate-300 font-bold text-xs">--:--</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-3 md:py-4 px-4 md:px-5 text-center bg-slate-50/30">
+                                        {% if r.horas_dia > 0 %}
+                                            <span class="font-black text-xs md:text-sm {% if r.horas_dia < 4 %}text-[#cc0000]{% else %}text-slate-800{% endif %}">{{ r.horas_dia }} hrs</span>
+                                        {% else %}
+                                            <span class="text-[9px] md:text-[10px] font-bold text-amber-500 uppercase tracking-wide border border-amber-200 bg-amber-50 px-2 py-0.5 rounded">Jornada Incompleta</span>
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
                             </tr>
                             {% empty %}
                             <tr>
                                 <td colspan="4" class="py-12 md:py-16 text-center text-slate-400">
                                     <i class="fa-solid fa-calendar-xmark text-3xl md:text-4xl mb-3 text-slate-200"></i>
-                                    <p class="text-xs md:text-sm font-semibold">No se encontraron marcaciones para esta fecha.</p>
+                                    <p class="text-xs md:text-sm font-semibold">No se encontraron marcaciones para esta fecha y área.</p>
                                 </td>
                             </tr>
                             {% endfor %}

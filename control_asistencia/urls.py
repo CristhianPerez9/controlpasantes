@@ -1,8 +1,6 @@
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from django.conf import settings
-from django.conf.urls.static import static
 from asistencia import views
 
 urlpatterns = [
@@ -11,7 +9,7 @@ urlpatterns = [
     # --- AUTENTICACIÓN ---
     path('login/', auth_views.LoginView.as_view(template_name='index.html'), name='login'),
     path('logout/', views.cerrar_sesion, name='logout'),
-
+    
     # --- RUTAS PRINCIPALES ---
     path('index/', views.index_dashboard, name='index_dashboard'),
     path('panel/', views.panel_supervisor, name='panel_supervisor'),
@@ -24,11 +22,7 @@ urlpatterns = [
     path('turnos/', views.gestionar_turnos, name='gestionar_turnos'),
     path('importar-csv/', views.importar_datos_csv, name='importar_csv'),
     
-    # NUEVA RUTA: Recibe la ID de la marca y la acción ('aprobar' o 'rechazar')
+    # --- RUTAS DE LOS PASANTES ---
     path('asistencia/decidir/<int:marca_id>/<str:accion>/', views.decidir_horas_extra, name='decidir_horas_extra'),
-   # NUEVA RUTA: para los pasantes
-    path('portal/', views.portal_pasante, name='portal_pasante'),
+    path('portal/', views.portal_pasante, name='portal_pasante'), # <-- ESTA LÍNEA ARREGLA EL ERROR
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR / 'static')

@@ -4,131 +4,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Asistencia</title>
+    <title>Registro de Asistencia - COMTECO</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     <style>
         body { font-family: 'Inter', sans-serif; }
+        
+        /* Efecto de parpadeo suave para los dos puntos del reloj */
+        .blink { animation: blinker 1s linear infinite; }
+        
+        /* Animación general de parpadeo */
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* Puntero/Cursor simulado para el campo CI */
+        .cursor-activo::after {
+            content: '';
+            display: inline-block;
+            width: 2.5px;
+            height: 1.1em;
+            background-color: #1d4ed8; /* Azul oscuro */
+            vertical-align: middle;
+            margin-left: 3px;
+            margin-bottom: 2px;
+            animation: blinker 1.1s step-end infinite;
+        }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen select-none">
-    
-    <div class="bg-white p-8 rounded-3xl shadow-lg w-full max-w-md border border-gray-100">
+<body class="bg-[#f4f5f6] min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-[380px] bg-white border border-slate-200 rounded-[2rem] shadow-xl p-6 sm:p-8 flex flex-col gap-6 relative overflow-hidden">
         
-        <div class="flex items-center justify-center gap-4 mb-4">
-            <img src="{% static 'logo.png' %}" alt="Logo COMTECO" class="h-12 w-12 object-contain">
-            <div class="text-left">
-                <h1 class="text-2xl font-bold text-gray-950 tracking-tight">COMTECO</h1>
-                <p class="text-xs font-medium text-gray-500">Control de Asistencia de Pasantes</p>
+        <div class="flex flex-col items-center justify-center gap-2 mt-2">
+            <div class="flex items-center gap-2">
+                <img src="{% static 'logo.png' %}" alt="Logo COMTECO" class="h-8 w-8 object-contain">
+                <h1 class="text-xl font-black text-[#cc0000] tracking-tight leading-none">COMTECO</h1>
             </div>
+            <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Control de Asistencia de Pasantes</p>
         </div>
 
-        <div class="text-center mb-4">
-            <h2 class="text-xl font-semibold text-gray-700">Ingreso de Asistencia</h2>
-            
-            <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-2xl shadow-inner">
-                <div class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Hora Oficial</div>
-                <div id="reloj-digital" class="text-3xl font-black text-gray-800 font-mono tracking-wider">00:00:00</div>
-            </div>
-        </div>
+        <h2 class="text-center text-lg font-black text-slate-800 -mt-2 tracking-tight">Ingreso de Asistencia</h2>
 
         {% if messages %}
-            <div class="mb-4">
+            <div class="flex flex-col gap-2">
                 {% for message in messages %}
-                    <div class="p-3 rounded-lg text-sm text-center {% if message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                    <div class="p-3 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-2 shadow-sm
+                        {% if message.tags == 'error' %} bg-red-50 text-red-700 border border-red-200
+                        {% elif message.tags == 'success' %} bg-emerald-50 text-emerald-700 border border-emerald-200
+                        {% elif message.tags == 'warning' %} bg-amber-50 text-amber-700 border border-amber-200
+                        {% endif %}">
                         {{ message }}
                     </div>
                 {% endfor %}
             </div>
         {% endif %}
 
-        <form id="attendance-form" method="POST" action="{% url 'registrar_asistencia' %}">
-            {% csrf_token %}
-            <div class="mb-4">
-                <input type="text" id="ci_display" name="ci_value" readonly 
-                       class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-center text-xl font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500" 
-                       placeholder="CI: 7654321">
-                <input type="hidden" id="tipo_marca" name="tipo_marca" value="ENTRADA">
-            </div>
-
-            <div class="grid grid-cols-3 gap-2 mb-6">
-                <button type="button" onclick="pressNum('1')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">1</button>
-                <button type="button" onclick="pressNum('2')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">2</button>
-                <button type="button" onclick="pressNum('3')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">3</button>
-                <button type="button" onclick="pressNum('4')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">4</button>
-                <button type="button" onclick="pressNum('5')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">5</button>
-                <button type="button" onclick="pressNum('6')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">6</button>
-                <button type="button" onclick="pressNum('7')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">7</button>
-                <button type="button" onclick="pressNum('8')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">8</button>
-                <button type="button" onclick="pressNum('9')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">9</button>
-                <button type="button" onclick="clearDisplay()" class="bg-[#e4a824] hover:bg-yellow-600 text-white font-semibold py-3 rounded-lg text-sm transition duration-200">BORRAR</button>
-                <button type="button" onclick="pressNum('0')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200">0</button>
-                <button type="button" onclick="backspaceDisplay()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-3 rounded-lg text-lg transition duration-200"><i class="fa-solid fa-delete-left"></i></button>
-            </div>
-
-            <div align="center">
-                <!-- <button type="button" onclick="submitAttendance('ENTRADA')" class="w-1/2 bg-[#239b56] hover:bg-green-700 text-white font-bold py-3 rounded-lg transition duration-200 uppercase tracking-wider text-sm flex items-center justify-center gap-2"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrada</button> -->
-                <button type="button" onclick="submitAttendance('ENTRADA')" class="w-1/2 bg-[#239b56] hover:bg-green-700 text-white font-bold py-3 rounded-lg transition duration-200 uppercase tracking-wider text-sm flex items-center justify-center gap-2"><i class="fa-solid fa-arrow-right-to-bracket"></i> MARCAR</button>
-                <!-- <button type="button" onclick="submitAttendance('SALIDA')" class="w-1/2 bg-[#cc2424] hover:bg-red-800 text-white font-bold py-3 rounded-lg transition duration-200 uppercase tracking-wider text-sm flex items-center justify-center gap-2"><i class="fa-solid fa-arrow-right-from-bracket"></i> Salida</button> -->
-            </div>
-        </form>
-        <div class="mt-6 text-center text-xs font-medium text-gray-500">
-            <a href="{% url 'index_dashboard' %}" class="text-blue-500 hover:text-blue-700">Supervisor</a>
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl py-3 flex flex-col items-center justify-center shadow-inner">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Hora Oficial</p>
+            <div id="clockDisplay" class="text-3xl font-black text-slate-800 tracking-wider">--:--:--</div>
         </div>
+
+        <form method="POST" action="" class="flex flex-col gap-4">
+            {% csrf_token %}
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-center min-h-[56px] shadow-inner">
+                <span class="text-sm font-bold text-slate-400 mr-2 uppercase tracking-widest">CI:</span>
+                <span id="ci-display" class="text-xl font-black text-blue-700 tracking-widest cursor-activo"></span>
+            </div>
+            
+            <input type="hidden" name="ci_value" id="ci_input" required>
+
+            <div class="grid grid-cols-3 gap-3">
+                <button type="button" onclick="pressKey('1')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">1</button>
+                <button type="button" onclick="pressKey('2')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">2</button>
+                <button type="button" onclick="pressKey('3')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">3</button>
+                
+                <button type="button" onclick="pressKey('4')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">4</button>
+                <button type="button" onclick="pressKey('5')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">5</button>
+                <button type="button" onclick="pressKey('6')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">6</button>
+                
+                <button type="button" onclick="pressKey('7')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">7</button>
+                <button type="button" onclick="pressKey('8')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">8</button>
+                <button type="button" onclick="pressKey('9')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">9</button>
+                
+                <button type="button" onclick="clearAll()" class="bg-amber-400 hover:bg-amber-500 text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl shadow-sm transition-all active:scale-95">Borrar</button>
+                <button type="button" onclick="pressKey('0')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl py-3.5 rounded-xl shadow-sm transition-all active:scale-95">0</button>
+                <button type="button" onclick="backspace()" class="bg-slate-300 hover:bg-slate-400 text-slate-700 font-black text-lg py-3.5 rounded-xl shadow-sm transition-all active:scale-95"><i class="fa-solid fa-delete-left"></i></button>
+            </div>
+
+            <button type="submit" class="w-full bg-[#10b981] hover:bg-[#059669] text-white font-black text-sm uppercase tracking-widest py-4 rounded-xl shadow-md transition-all active:scale-95 mt-2 flex justify-center items-center gap-2">
+                <i class="fa-solid fa-right-to-bracket text-lg"></i> Marcar
+            </button>
+        </form>
+
+        <div class="flex items-center justify-between gap-3 mt-1 pt-5 border-t border-slate-100">
+            
+            <a href="{% url 'portal_pasante' %}" class="flex-1 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:text-blue-600 transition-colors group">
+                <div class="bg-slate-50 border border-slate-200 group-hover:border-blue-300 group-hover:bg-blue-50 w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-sm">
+                    <i class="fa-solid fa-user-graduate text-sm"></i>
+                </div>
+                <span class="text-[9px] font-black uppercase tracking-wider">Mi Portal</span>
+            </a>
+
+            <a href="{% url 'login' %}" class="flex-1 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:text-[#cc0000] transition-colors group">
+                <div class="bg-slate-50 border border-slate-200 group-hover:border-red-300 group-hover:bg-red-50 w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-sm">
+                    <i class="fa-solid fa-lock text-sm"></i>
+                </div>
+                <span class="text-[9px] font-black uppercase tracking-wider">Supervisor</span>
+            </a>
+            
+        </div>
+
     </div>
 
     <script>
-        const display = document.getElementById('ci_display');
-        const form = document.getElementById('attendance-form');
-        const tipoMarcaInput = document.getElementById('tipo_marca');
-
-        // Lógica del Reloj Digital
-        function actualizarReloj() {
-            const ahora = new Date();
-            const horas = String(ahora.getHours()).padStart(2, '0');
-            const minutos = String(ahora.getMinutes()).padStart(2, '0');
-            const segundos = String(ahora.getSeconds()).padStart(2, '0');
-            document.getElementById('reloj-digital').textContent = `${horas}:${minutos}:${segundos}`;
+        // Lógica del Reloj
+        function updateClock() {
+            const now = new Date();
+            let hours = String(now.getHours()).padStart(2, '0');
+            let minutes = String(now.getMinutes()).padStart(2, '0');
+            let seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clockDisplay').innerHTML = `${hours}<span class="blink">:</span>${minutes}<span class="blink">:</span>${seconds}`;
         }
-        setInterval(actualizarReloj, 1000);
-        actualizarReloj();
+        setInterval(updateClock, 1000);
+        updateClock();
 
-        // Control por Mouse
-        function pressNum(num) {
-            if (display.value.length < 15) {
-                display.value += num;
+        // Lógica del Teclado
+        const display = document.getElementById('ci-display');
+        const input = document.getElementById('ci_input');
+
+        function pressKey(num) {
+            if (display.innerText.length < 12) { // Límite de caracteres para CI
+                display.innerText += num;
+                input.value += num;
             }
         }
 
-        function clearDisplay() {
-            display.value = '';
+        function clearAll() {
+            display.innerText = '';
+            input.value = '';
         }
 
-        function backspaceDisplay() {
-            display.value = display.value.slice(0, -1);
+        function backspace() {
+            display.innerText = display.innerText.slice(0, -1);
+            input.value = input.value.slice(0, -1);
         }
 
-        function submitAttendance(tipo) {
-            if (display.value.trim() === "") {
-                alert("Por favor, ingrese un número de carnet.");
-                return;
-            }
-            tipoMarcaInput.value = tipo;
-            form.submit();
-        }
-
-        // Control por Teclado Físico
+        // Permite usar teclado físico
         document.addEventListener('keydown', function(event) {
             if (event.key >= '0' && event.key <= '9') {
-                pressNum(event.key);
+                pressKey(event.key);
             } else if (event.key === 'Backspace') {
-                backspaceDisplay();
+                backspace();
             } else if (event.key === 'Delete') {
-                clearDisplay();
-            } else if (event.key === 'Enter') {
-                event.preventDefault();
-                submitAttendance('ENTRADA');
+                clearAll();
             }
         });
     </script>

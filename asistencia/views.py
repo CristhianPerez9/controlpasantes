@@ -275,7 +275,6 @@ def panel_supervisor(request):
                 if m.hora > limite_tolerancia:
                     alertas_tardanza += 1
 
-    # --- CORRECCIÓN 1: SE INICIALIZA LA LISTA DEL RADAR ---
     radar_presentes = []
     en_oficina_count = 0
     presentes_hoy_count = len(marcas_por_pasante) 
@@ -355,6 +354,7 @@ def panel_supervisor(request):
     }
     return render(request, 'panel_del_supervisor_marca_actualizada/code.html', context)
 
+
 @login_required
 def listado_detallado(request):
     if not tiene_acceso_al_sistema(request.user):
@@ -365,16 +365,26 @@ def listado_detallado(request):
     perfil = getattr(supervisor_actual, 'perfil', None)
     mi_unidad = perfil.unidad if perfil else "Sin Área"
     
+    # 1. FILTRO DE ÁREAS (PÍLDORAS)
+    area_seleccionada = request.GET.get('area', 'Todos')
+    
     if puede_asignar:
-        pasantes_queryset = Pasante.objects.all().order_by('nombre_completo')
-        queryset_marcas = RegistroAsistencia.objects.all().select_related('pasante')
+        pasantes_base = Pasante.objects.all().order_by('nombre_completo')
     else:
-        pasantes_queryset = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
-        queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_queryset).select_related('pasante')
+        pasantes_base = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
+
+    # Solo las áreas de pasantes registrados
+    areas_disponibles = sorted(list(set([p.area for p in pasantes_base if p.area])))
+
+    pasantes_filtrados = pasantes_base
+    if area_seleccionada != 'Todos' and area_seleccionada != '':
+        pasantes_filtrados = pasantes_base.filter(area__iexact=area_seleccionada)
+
+    queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_filtrados).select_related('pasante')
 
     lista_con_calculos = []
     horas_area = 0.0
-    for p in pasantes_queryset:
+    for p in pasantes_filtrados:
         horas_totales_p = calcular_horas_pasante(p)
         horas_area += horas_totales_p
         lista_con_calculos.append({'objeto': p, 'horas_hechas': horas_totales_p})
@@ -384,12 +394,16 @@ def listado_detallado(request):
     pagina_actual = paginator.get_page(request.GET.get('page'))
 
     reporte_final = []
+
     if pagina_actual.object_list:
         fecha_del_dia = pagina_actual.object_list[0]
         marcas_del_dia = queryset_marcas.filter(fecha=fecha_del_dia).order_by('pasante__nombre_completo', 'hora')
         
         marcas_agrupadas = {}
+        presentes_ids = set()
+        
         for m in marcas_del_dia:
+            presentes_ids.add(m.pasante_id)
             if m.pasante not in marcas_agrupadas:
                 marcas_agrupadas[m.pasante] = {'entrada': None, 'salida': None}
             if m.tipo == 'ENTRADA' and not marcas_agrupadas[m.pasante]['entrada']:
@@ -397,6 +411,7 @@ def listado_detallado(request):
             elif m.tipo == 'SALIDA' and m.estado == 'APROBADO':
                 marcas_agrupadas[m.pasante]['salida'] = m.hora.replace(second=0, microsecond=0)
 
+        # Presentes
         for pasante, datos in marcas_agrupadas.items():
             horas_dia = 0.0
             if datos['entrada'] and datos['salida']:
@@ -406,11 +421,29 @@ def listado_detallado(request):
                 
             reporte_final.append({
                 'pasante': pasante,
+                'estado': 'PRESENTE',
                 'fecha': fecha_del_dia,
                 'entrada': datos['entrada'],
                 'salida': datos['salida'],
                 'horas_dia': round(horas_dia, 2)
             })
+            
+        # Ausentes
+        pasantes_activos = pasantes_filtrados.filter(nota_final__isnull=True)
+        for p in pasantes_activos:
+            # QUITE LA RESTRICCIÓN DE LA FECHA FIN: Ahora evalúa si el contrato empezó nomás
+            if p.fecha_inicio <= fecha_del_dia:
+                if p.id not in presentes_ids:
+                    reporte_final.append({
+                        'pasante': p,
+                        'estado': 'AUSENTE',
+                        'fecha': fecha_del_dia,
+                        'entrada': None,
+                        'salida': None,
+                        'horas_dia': 0.0
+                    })
+
+        reporte_final.sort(key=lambda x: (x['estado'] != 'PRESENTE', x['pasante'].nombre_completo))
 
     context = {
         'reportes_asistencia': reporte_final,      
@@ -418,9 +451,13 @@ def listado_detallado(request):
         'horas_area': round(horas_area, 1),        
         'pasantes_calculados': lista_con_calculos, 
         'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
-        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual)
+        'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
+        'puede_asignar': puede_asignar,
+        'areas_disponibles': areas_disponibles,
+        'area_seleccionada': area_seleccionada
     }
     return render(request, 'listado_detallado_de_asistencia_marca_actualizada/code.html', context)
+
 
 @login_required
 def generacion_reportes(request):
@@ -444,12 +481,19 @@ def generacion_reportes(request):
     fecha_hasta = request.GET.get('fecha_hasta', '')
     pasante_seleccionado = None
     
+    hay_filtros = False
+    
     if filtro_pasante and filtro_pasante != 'todos':
         queryset_marcas = queryset_marcas.filter(pasante_id=filtro_pasante)
         pasante_seleccionado = pasantes_lista.filter(id=filtro_pasante).first()
+        hay_filtros = True
         
-    if fecha_desde: queryset_marcas = queryset_marcas.filter(fecha__gte=fecha_desde)
-    if fecha_hasta: queryset_marcas = queryset_marcas.filter(fecha__lte=fecha_hasta)
+    if fecha_desde: 
+        queryset_marcas = queryset_marcas.filter(fecha__gte=fecha_desde)
+        hay_filtros = True
+    if fecha_hasta: 
+        queryset_marcas = queryset_marcas.filter(fecha__lte=fecha_hasta)
+        hay_filtros = True
         
     queryset_marcas = queryset_marcas.order_by('fecha', 'hora')
     
@@ -476,6 +520,10 @@ def generacion_reportes(request):
         reporte_final.append({'pasante': pasante, 'fecha': fecha, 'entrada': datos['entrada'], 'salida': datos['salida'], 'horas_dia': round(horas_dia, 2)})
 
     reporte_final.sort(key=lambda x: x['fecha'], reverse=True)
+    
+    if not hay_filtros:
+        reporte_final = reporte_final[:15] 
+        total_horas_periodo = sum(item['horas_dia'] for item in reporte_final)
         
     context = {
         'pasantes': pasantes_lista, 
@@ -584,6 +632,7 @@ def lista_pasantes(request):
         
         dias_restantes = (p.fecha_fin - hoy).days
         alerta_conclusion = horas_restantes <= 20 
+
         marca_pendiente = RegistroAsistencia.objects.filter(pasante=p, estado='PENDIENTE').order_by('-fecha', '-hora').first()
 
         lista_con_calculos.append({
@@ -667,8 +716,6 @@ def portal_pasante(request):
                 
                 hoy = date.today()
                 dias_restantes = (pasante.fecha_fin - hoy).days
-                
-                # --- CORRECCIÓN 2: CÁLCULO POSITIVO DE DÍAS VENCIDOS DESDE PYTHON ---
                 dias_vencidos = abs(dias_restantes) if dias_restantes < 0 else 0
                 
                 turnos = TurnoPasante.objects.filter(pasante=pasante)
@@ -705,7 +752,7 @@ def portal_pasante(request):
                     'horas_restantes': horas_restantes,
                     'porcentaje': porcentaje,
                     'dias_restantes': dias_restantes,
-                    'dias_vencidos': dias_vencidos, # Enviamos la variable ya calculada y positiva
+                    'dias_vencidos': dias_vencidos,
                     'total_tardanzas': total_tardanzas,
                     'semaforo_color': semaforo_color,
                     'semaforo_texto': semaforo_texto,
