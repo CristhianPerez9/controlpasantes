@@ -56,8 +56,13 @@
                 </div>
                 <nav class="flex md:flex-col flex-row flex-wrap gap-2 text-xs font-semibold text-slate-600 md:mt-2 justify-center md:justify-start">
                     <a href="{% url 'panel_supervisor' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-table-cells-large text-sm w-4"></i> Panel Control</a>
+                    
                     <a href="{% url 'lista_pasantes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-users text-sm w-4"></i> Lista Pasantes</a>
+                    
+                    <a href="{% url 'gestionar_turnos' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-calendar-check text-sm w-4"></i> Gestionar Turnos</a>
+                    
                     <a href="{% url 'listado_detallado' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl hover:bg-slate-50 transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-clock-rotate-left text-sm w-4"></i> Control Asistencia</a>
+                    
                     <a href="{% url 'generacion_reportes' %}" class="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl bg-[#cc0000] text-white shadow-md transition-colors flex-1 md:flex-none justify-center md:justify-start min-w-[140px]"><i class="fa-solid fa-file-invoice text-sm w-4"></i> Generar Reportes</a>
                 </nav>
             </div>

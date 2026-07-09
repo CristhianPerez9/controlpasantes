@@ -365,7 +365,7 @@ def listado_detallado(request):
     perfil = getattr(supervisor_actual, 'perfil', None)
     mi_unidad = perfil.unidad if perfil else "Sin Área"
     
-    # 1. FILTRO DE ÁREAS (PÍLDORAS)
+    # 1. LOGICA DE FILTRO POR SECTORES DINÁMICOS
     area_seleccionada = request.GET.get('area', 'Todos')
     
     if puede_asignar:
@@ -373,13 +373,15 @@ def listado_detallado(request):
     else:
         pasantes_base = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
 
-    # Solo las áreas de pasantes registrados
+    # Generamos las píldoras dinámicamente con las áreas reales de la base de datos
     areas_disponibles = sorted(list(set([p.area for p in pasantes_base if p.area])))
 
+    # Filtrar el queryset si se selecciona un sector específico
     pasantes_filtrados = pasantes_base
     if area_seleccionada != 'Todos' and area_seleccionada != '':
         pasantes_filtrados = pasantes_base.filter(area__iexact=area_seleccionada)
 
+    # Buscar marcas únicamente de los pasantes correspondientes al filtro
     queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_filtrados).select_related('pasante')
 
     lista_con_calculos = []
@@ -411,7 +413,7 @@ def listado_detallado(request):
             elif m.tipo == 'SALIDA' and m.estado == 'APROBADO':
                 marcas_agrupadas[m.pasante]['salida'] = m.hora.replace(second=0, microsecond=0)
 
-        # Presentes
+        # A. Cargar pasantes PRESENTES
         for pasante, datos in marcas_agrupadas.items():
             horas_dia = 0.0
             if datos['entrada'] and datos['salida']:
@@ -428,10 +430,9 @@ def listado_detallado(request):
                 'horas_dia': round(horas_dia, 2)
             })
             
-        # Ausentes
+        # B. Cargar pasantes AUSENTES (Sin restricción de fecha_fin, solo nota_final vacía)
         pasantes_activos = pasantes_filtrados.filter(nota_final__isnull=True)
         for p in pasantes_activos:
-            # QUITE LA RESTRICCIÓN DE LA FECHA FIN: Ahora evalúa si el contrato empezó nomás
             if p.fecha_inicio <= fecha_del_dia:
                 if p.id not in presentes_ids:
                     reporte_final.append({
@@ -442,7 +443,8 @@ def listado_detallado(request):
                         'salida': None,
                         'horas_dia': 0.0
                     })
-
+        
+        # C. Ordenar la lista final (Presentes arriba, Ausentes abajo)
         reporte_final.sort(key=lambda x: (x['estado'] != 'PRESENTE', x['pasante'].nombre_completo))
 
     context = {
@@ -522,7 +524,7 @@ def generacion_reportes(request):
     reporte_final.sort(key=lambda x: x['fecha'], reverse=True)
     
     if not hay_filtros:
-        reporte_final = reporte_final[:15] 
+        reporte_final = reporte_final[:15]
         total_horas_periodo = sum(item['horas_dia'] for item in reporte_final)
         
     context = {
@@ -632,7 +634,6 @@ def lista_pasantes(request):
         
         dias_restantes = (p.fecha_fin - hoy).days
         alerta_conclusion = horas_restantes <= 20 
-
         marca_pendiente = RegistroAsistencia.objects.filter(pasante=p, estado='PENDIENTE').order_by('-fecha', '-hora').first()
 
         lista_con_calculos.append({
