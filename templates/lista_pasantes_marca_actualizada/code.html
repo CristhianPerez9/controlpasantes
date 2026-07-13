@@ -76,7 +76,7 @@
                 
                 {% if messages %}
                     {% for message in messages %}
-                        <div class="p-3 md:p-4 mb-2 rounded-xl text-xs md:text-sm font-bold {% if message.tags == 'error' %}bg-red-100 text-red-700 border border-red-200{% else %}bg-emerald-100 text-emerald-700 border border-emerald-200{% endif %}">
+                        <div class="p-3 md:p-4 mb-2 rounded-xl text-xs md:text-sm font-bold {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
                             {{ message }}
                         </div>
                     {% endfor %}
@@ -108,8 +108,8 @@
                         </select>
                     </div>
 
-                    <div class="bg-rose-50 border border-rose-200 p-4 rounded-xl mt-1 flex flex-col gap-2">
-                        <div class="flex items-center gap-2 font-bold text-[10px] uppercase text-[#cc0000] border-b border-rose-200 pb-2">
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl mt-1 flex flex-col gap-2">
+                        <div class="flex items-center gap-2 font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 pb-2">
                             <i class="fa-solid fa-user-check"></i> Supervisor Asignado
                         </div>
                         
@@ -120,7 +120,7 @@
                         </select>
 
                         <div id="supervisores-ui-container" class="py-2 min-h-[40px] flex flex-wrap gap-2 items-center">
-                            <p class="text-xs text-slate-500 italic">Selecciona un Área arriba para ver los encargados.</p>
+                            <p class="text-xs text-slate-400 italic">Selecciona un Área arriba para ver los encargados.</p>
                         </div>
                         
                         <p class="text-[8px] text-slate-400 mt-1"><i class="fa-solid fa-hand-pointer"></i> Haz clic en los nombres para asignarlos al pasante.</p>
@@ -149,20 +149,26 @@
             </div>
             {% endif %}
 
-            <div class="w-full {% if puede_asignar %}xl:w-[65%]{% else %}xl:w-full{% endif %} flex flex-col gap-4 md:gap-6 mt-4 xl:mt-0">
-                <div class="flex items-center justify-between xl:mt-8">
+            <div class="w-full {% if puede_asignar %}xl:w-[65%]{% else %}xl:w-full{% endif %} flex flex-col gap-4 mt-4 xl:mt-0">
+                
+                <div class="flex flex-col gap-3 xl:mt-8 mb-2">
                     <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-slate-500">
                         <i class="fa-solid fa-chart-pie"></i> Balance de Horas y Calificaciones
                     </div>
-                </div>
-                
-                {% if puede_asignar %}
-                <div id="filter-container" class="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                </div>
-                {% endif %}
 
-                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex-1">
-                    <div class="overflow-x-auto w-full">
+                    {% if puede_asignar %}
+                    <div class="flex flex-wrap items-center gap-2 pb-2">
+                        <a href="?area=Todos" class="px-3 py-1.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm border {% if area_seleccionada == 'Todos' or not area_seleccionada %}bg-[#cc0000] text-white border-[#cc0000]{% else %}bg-white text-slate-500 border-slate-200 hover:text-[#cc0000] hover:border-[#cc0000]{% endif %}">Todos</a>
+                        
+                        {% for a in areas_disponibles_filtro %}
+                            <a href="?area={{ a|urlencode }}" class="px-3 py-1.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm border {% if area_seleccionada == a %}bg-[#cc0000] text-white border-[#cc0000]{% else %}bg-white text-slate-500 border-slate-200 hover:text-[#cc0000] hover:border-[#cc0000]{% endif %}">{{ a }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1">
+                    <div class="overflow-x-auto w-full flex-1">
                         <table class="w-full text-left text-[10px] md:text-xs border-collapse min-w-[650px]">
                             <thead>
                                 <tr class="bg-slate-50 font-bold text-slate-400 uppercase text-[8px] md:text-[9px] tracking-wider border-b border-slate-200">
@@ -177,22 +183,22 @@
                             <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
                                 {% if pasantes_calculados %}
                                     {% for calc in pasantes_calculados %}
-                                    <tr class="hover:bg-slate-50/50 transition-colors pasante-row" data-area="{{ calc.objeto.area }}">
+                                    <tr class="hover:bg-slate-50/50 transition-colors">
                                         
                                         <td class="py-3 md:py-4 px-4 md:px-5 flex flex-col items-start gap-1">
                                             <p class="font-bold text-slate-800 text-xs md:text-sm">{{ calc.objeto.nombre_completo }}</p>
                                             <p class="text-[8px] md:text-[10px] text-slate-400">Contrato: {{ calc.objeto.fecha_inicio|date:"d/m/Y" }} - {{ calc.objeto.fecha_fin|date:"d/m/Y" }}</p>
                                             
                                             {% if calc.dias_restantes < 0 and not calc.objeto.nota_final %}
-                                                <div class="inline-flex items-center gap-1 bg-slate-800 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight shadow-sm mt-0.5">
-                                                    <i class="fa-solid fa-clock-rotate-left text-[8px]"></i> ¡Contrato Vencido!
+                                                <div class="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight mt-0.5">
+                                                    <i class="fa-solid fa-clock-rotate-left text-[8px]"></i> Contrato Vencido
                                                 </div>
                                             {% endif %}
                                             
                                             {% if puede_asignar %}
-                                                <p class="text-[8px] md:text-[9px] text-[#cc0000] font-bold mt-1 uppercase"><i class="fa-solid fa-building mr-1"></i> {{ calc.objeto.area }}</p>
+                                                <p class="text-[8px] md:text-[9px] text-slate-500 font-bold mt-1 uppercase"><i class="fa-solid fa-building mr-1 text-slate-400"></i> {{ calc.objeto.area }}</p>
                                                 {% for sup in calc.objeto.supervisores.all %}
-                                                    <p class="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase ml-2"><i class="fa-solid fa-user-tie mr-1"></i> {{ sup.first_name }} {{ sup.last_name }}</p>
+                                                    <p class="text-[8px] md:text-[9px] text-sky-600 font-bold uppercase ml-2 mt-0.5"><i class="fa-solid fa-user-tie mr-1 text-sky-400"></i> {{ sup.first_name }} {{ sup.last_name }}</p>
                                                 {% endfor %}
                                             {% endif %}
                                         </td>
@@ -201,37 +207,36 @@
                                         
                                         <td class="py-3 md:py-4 px-4 md:px-5">
                                             <div class="flex flex-col items-center justify-center">
-                                                <span class="font-black text-emerald-600 text-sm">{{ calc.horas_hechas }}h</span>
-                                                <span class="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md mt-1">{{ calc.porcentaje }}%</span>
+                                                <span class="font-black text-emerald-600 text-sm md:text-base">{{ calc.horas_hechas }}h</span>
+                                                <span class="text-[9px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md mt-0.5 border border-slate-200">{{ calc.porcentaje }}% completado</span>
                                             </div>
                                         </td>
                                         
                                         <td class="py-3 md:py-4 px-4 md:px-5">
                                             <div class="flex flex-col items-center justify-center w-full">
-                                                <span class="font-black text-[#cc0000] text-sm">{{ calc.horas_restantes }}h</span>
+                                                <span class="font-black text-sm md:text-base
+                                                    {% if calc.porcentaje >= 100 %} text-emerald-600
+                                                    {% elif calc.dias_restantes < 0 and calc.horas_restantes > 0 %} text-red-600
+                                                    {% elif calc.horas_restantes <= 20 %} text-amber-500
+                                                    {% else %} text-slate-700 {% endif %}">
+                                                    {{ calc.horas_restantes }}h
+                                                </span>
                                                 
-                                                <div class="flex items-center justify-center gap-2 mt-1.5 w-full">
-                                                    <div class="w-2.5 h-2.5 rounded-full flex-shrink-0
-                                                        {% if calc.porcentaje >= 100 %} bg-emerald-500 shadow-[0_0_5px_#10b981]
-                                                        {% elif calc.dias_restantes < 0 and calc.horas_restantes > 0 %} bg-red-500 shadow-[0_0_5px_#ef4444] animate-pulse
-                                                        {% elif calc.horas_restantes <= 20 %} bg-amber-500 shadow-[0_0_5px_#f59e0b]
-                                                        {% else %} bg-emerald-400 shadow-[0_0_5px_#34d399] {% endif %}">
-                                                    </div>
-                                                    
+                                                <div class="flex items-center justify-center gap-2 mt-1 w-full">
                                                     <div class="w-full max-w-[80px] bg-slate-200 rounded-full h-2 overflow-hidden flex">
-                                                        <div class="h-full transition-all duration-500 
+                                                        <div class="h-full transition-all duration-500 rounded-full
                                                             {% if calc.porcentaje >= 100 %} bg-emerald-500 
                                                             {% elif calc.dias_restantes < 0 and calc.horas_restantes > 0 %} bg-red-500 
                                                             {% elif calc.horas_restantes <= 20 %} bg-amber-500 
-                                                            {% else %} bg-emerald-400 {% endif %}" 
+                                                            {% else %} bg-blue-500 {% endif %}" 
                                                             style="width: {{ calc.porcentaje }}%;">
                                                         </div>
                                                     </div>
                                                 </div>
                                                 
                                                 {% if calc.alerta_conclusion and calc.horas_restantes > 0 and not calc.objeto.nota_final %}
-                                                    <div class="mt-2 inline-flex items-center gap-1 bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tight animate-pulse shadow-sm">
-                                                        <i class="fa-solid fa-triangle-exclamation text-[8px]"></i> ¡Preparar Informe!
+                                                    <div class="mt-1.5 inline-flex items-center gap-1 text-orange-700 bg-orange-100 border border-orange-300 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight animate-pulse shadow-sm">
+                                                        <i class="fa-solid fa-triangle-exclamation text-[8px]"></i> Preparar Informe
                                                     </div>
                                                 {% endif %}
                                             </div>
@@ -239,14 +244,14 @@
                                         
                                         <td class="py-3 md:py-4 px-4 md:px-5 text-center">
                                             {% if calc.objeto.nota_final %}
-                                                <span class="bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded border border-emerald-200">{{ calc.objeto.nota_final }}/100</span>
+                                                <span class="bg-indigo-50 text-indigo-600 font-bold px-2.5 py-1.5 rounded-lg border border-indigo-100 shadow-sm">{{ calc.objeto.nota_final }} / 100</span>
                                             {% else %}
-                                                <span class="text-slate-400 font-bold text-[8px] md:text-[9px] uppercase"><i class="fa-solid fa-lock mr-1"></i>En Proceso</span>
+                                                <span class="text-slate-300 font-bold text-[8px] md:text-[9px] uppercase tracking-wider bg-slate-50 px-2 py-1 rounded border border-slate-100"><i class="fa-solid fa-hourglass-half mr-1"></i>En Proceso</span>
                                             {% endif %}
                                         </td>
 
                                         <td class="py-3 md:py-4 px-4 md:px-5 text-center relative td-action">
-                                            <button onclick="toggleMenu('menu-{{ calc.objeto.id }}')" class="text-slate-400 hover:text-[#cc0000] transition-colors px-3 py-1 rounded-md hover:bg-rose-50 cursor-pointer">
+                                            <button onclick="toggleMenu('menu-{{ calc.objeto.id }}')" class="text-slate-400 hover:text-[#cc0000] transition-colors px-3 py-1 rounded-md hover:bg-slate-50 cursor-pointer">
                                                 <i class="fa-solid fa-ellipsis-vertical text-lg"></i>
                                             </button>
                                             
@@ -287,13 +292,42 @@
                                 {% else %}
                                     <tr>
                                         <td colspan="6" class="py-12 px-5 text-center text-slate-400 text-sm italic">
-                                            No hay pasantes registrados en el sistema.
+                                            No hay pasantes que coincidan con este filtro.
                                         </td>
                                     </tr>
                                 {% endif %}
                             </tbody>
                         </table>
                     </div>
+
+                    {% if pagina_actual %}
+                    <div class="flex justify-center p-4 border-t border-slate-100 bg-slate-50/50">
+                        <div class="bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 flex items-center gap-4 shrink-0">
+                            {% if pagina_actual.has_previous %}
+                                <a href="?page={{ pagina_actual.previous_page_number }}{% if area_seleccionada %}&area={{ area_seleccionada|urlencode }}{% endif %}" class="w-7 h-7 rounded-full bg-slate-50 hover:bg-blue-500 hover:text-white text-slate-500 flex items-center justify-center transition-colors">
+                                    <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                                </a>
+                            {% else %}
+                                <div class="w-7 h-7 rounded-full bg-slate-50 text-slate-300 flex items-center justify-center cursor-not-allowed">
+                                    <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                                </div>
+                            {% endif %}
+                            
+                            <span class="text-[10px] font-bold text-slate-600">Pág. {{ pagina_actual.number }} de {{ pagina_actual.paginator.num_pages }}</span>
+                            
+                            {% if pagina_actual.has_next %}
+                                <a href="?page={{ pagina_actual.next_page_number }}{% if area_seleccionada %}&area={{ area_seleccionada|urlencode }}{% endif %}" class="w-7 h-7 rounded-full bg-slate-50 hover:bg-blue-500 hover:text-white text-slate-500 flex items-center justify-center transition-colors">
+                                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                                </a>
+                            {% else %}
+                                <div class="w-7 h-7 rounded-full bg-slate-50 text-slate-300 flex items-center justify-center cursor-not-allowed">
+                                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
                 </div>
             </div>
         </main>

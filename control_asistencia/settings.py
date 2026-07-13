@@ -8,11 +8,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-tu-clave-secreta-aqui')
 
 # desarrollo #####################################
+# CORRECCIÓN: Por defecto iniciará en True para evitar activar seguridad de producción en local
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
-CSRF_TRUSTED_ORIGINS = [
-   'http://localhost',
-   'http://127.0.0.1',]
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,*').split(',')]
+CSRF_TRUSTED_ORIGINS = [h.strip() for h in os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost,http://127.0.0.1,http://localhost:8000,http://127.0.0.1:8000').split(',')]
 
 
 # #**************************** produccion
@@ -116,15 +115,7 @@ USE_I18N = True
 USE_TZ = False
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/stable/howto/static-files/
-
-# STATIC_URL = '/static/'
-# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-
-# # CORRECCIÓN PARA DOCKER: Carpeta donde se recopilarán todos los estáticos
-# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
+# Default field type for auto-increment fields
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configuración de Redirecciones de Autenticación
@@ -166,3 +157,33 @@ AUTHENTICATION_BACKENDS = [
 
 # Le dice a Django que confíe en el encabezado del proxy que indica que la conexión original era HTTPS
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# ==============================================================================
+# CONFIGURACIÓN DE SEGURIDAD ADICIONAL (No rompe funcionalidad existente)
+# ==============================================================================
+
+# CORRECCIÓN DE REDIRECCIÓN: Comentado para desarrollo local (Evita errores SSL en localhost)
+# if not DEBUG:
+#     SECURE_SSL_REDIRECT = True
+#     SESSION_COOKIE_SECURE = True
+#     CSRF_COOKIE_COOKIE_SECURE = True
+#     SECURE_HSTS_SECONDS = 31536000
+#     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+
+# Headers de seguridad (no afectan funcionalidad)
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_SECURITY_POLICY = {
+    'default-src': ("'self'",),
+    'script-src': ("'self'", "'unsafe-inline'"),  # inline para templates Django
+    'style-src': ("'self'", "'unsafe-inline'"),
+}
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+# Contraseña de sesión
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+
+# Timeout de sesión más seguro (1 hora)
+SESSION_COOKIE_AGE = 3600
+
+# CORRECCIÓN CSRF: Se elimina la validación condicional que inyectaba un 'None' y colgaba el sistema

@@ -365,7 +365,6 @@ def listado_detallado(request):
     perfil = getattr(supervisor_actual, 'perfil', None)
     mi_unidad = perfil.unidad if perfil else "Sin Área"
     
-    # 1. LOGICA DE FILTRO POR SECTORES DINÁMICOS
     area_seleccionada = request.GET.get('area', 'Todos')
     
     if puede_asignar:
@@ -373,15 +372,12 @@ def listado_detallado(request):
     else:
         pasantes_base = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
 
-    # Generamos las píldoras dinámicamente con las áreas reales de la base de datos
     areas_disponibles = sorted(list(set([p.area for p in pasantes_base if p.area])))
 
-    # Filtrar el queryset si se selecciona un sector específico
     pasantes_filtrados = pasantes_base
     if area_seleccionada != 'Todos' and area_seleccionada != '':
         pasantes_filtrados = pasantes_base.filter(area__iexact=area_seleccionada)
 
-    # Buscar marcas únicamente de los pasantes correspondientes al filtro
     queryset_marcas = RegistroAsistencia.objects.filter(pasante__in=pasantes_filtrados).select_related('pasante')
 
     lista_con_calculos = []
@@ -413,7 +409,6 @@ def listado_detallado(request):
             elif m.tipo == 'SALIDA' and m.estado == 'APROBADO':
                 marcas_agrupadas[m.pasante]['salida'] = m.hora.replace(second=0, microsecond=0)
 
-        # A. Cargar pasantes PRESENTES
         for pasante, datos in marcas_agrupadas.items():
             horas_dia = 0.0
             if datos['entrada'] and datos['salida']:
@@ -430,7 +425,6 @@ def listado_detallado(request):
                 'horas_dia': round(horas_dia, 2)
             })
             
-        # B. Cargar pasantes AUSENTES (Sin restricción de fecha_fin, solo nota_final vacía)
         pasantes_activos = pasantes_filtrados.filter(nota_final__isnull=True)
         for p in pasantes_activos:
             if p.fecha_inicio <= fecha_del_dia:
@@ -443,8 +437,7 @@ def listado_detallado(request):
                         'salida': None,
                         'horas_dia': 0.0
                     })
-        
-        # C. Ordenar la lista final (Presentes arriba, Ausentes abajo)
+
         reporte_final.sort(key=lambda x: (x['estado'] != 'PRESENTE', x['pasante'].nombre_completo))
 
     context = {
@@ -524,7 +517,7 @@ def generacion_reportes(request):
     reporte_final.sort(key=lambda x: x['fecha'], reverse=True)
     
     if not hay_filtros:
-        reporte_final = reporte_final[:15]
+        reporte_final = reporte_final[:15] 
         total_horas_periodo = sum(item['horas_dia'] for item in reporte_final)
         
     context = {
@@ -536,6 +529,7 @@ def generacion_reportes(request):
         'filtro_pasante': filtro_pasante, 'fecha_desde': fecha_desde, 'fecha_hasta': fecha_hasta, 'pasante_seleccionado': pasante_seleccionado
     }
     return render(request, 'generaci_n_de_reportes_marca_actualizada/code.html', context)
+
 
 @login_required
 def lista_pasantes(request):
@@ -554,7 +548,6 @@ def lista_pasantes(request):
     if puede_asignar:
         todos_los_usuarios = User.objects.filter(is_active=True).select_related('perfil').order_by('username')
         areas_objs = AreaEmpresa.objects.all().order_by('nombre')
-        
         if areas_objs.exists():
             areas_disponibles = [a.nombre for a in areas_objs]
             for a in areas_objs:
@@ -565,7 +558,7 @@ def lista_pasantes(request):
         else:
             areas_brutas = [u.perfil.unidad for u in todos_los_usuarios if hasattr(u, 'perfil') and u.perfil.unidad]
             areas_disponibles = sorted(list(set(areas_brutas)))
-
+            
     if request.method == 'POST' and 'btn_guardar_nota' in request.POST:
         pasante_id = request.POST.get('pasante_id_modal')
         nota_final = request.POST.get('nota_final')
@@ -617,14 +610,24 @@ def lista_pasantes(request):
                     messages.success(request, f"¡Pasante {nombre} guardado exitosamente!")
             return redirect('lista_pasantes')
 
+    # --- CARGAR LA BASE DE PASANTES ---
     if puede_asignar:
-        pasantes_queryset = Pasante.objects.all().order_by('nombre_completo')
+        pasantes_base = Pasante.objects.all().order_by('nombre_completo')
     else:
-        pasantes_queryset = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
-        
+        pasantes_base = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
+
+    # --- CAMBIO SOLICITADO: Extraer píldoras ÚNICAMENTE de las áreas que ya tienen pasantes asignados
+    areas_disponibles_filtro = sorted(list(set([p.area for p in pasantes_base if p.area])))
+
+    # Filtrado según la píldora elegida
+    area_seleccionada = request.GET.get('area', 'Todos')
+    pasantes_filtrados = pasantes_base
+    if area_seleccionada != 'Todos' and area_seleccionada != '':
+        pasantes_filtrados = pasantes_base.filter(area__iexact=area_seleccionada)
+
     lista_con_calculos = []
     hoy = date.today()
-    for p in pasantes_queryset:
+    for p in pasantes_filtrados:
         horas_hechas_redond = calcular_horas_pasante(p)
         horas_req_float = float(p.horas_requeridas)
         horas_restantes = max(0.0, round(horas_req_float - horas_hechas_redond, 1))
@@ -645,11 +648,19 @@ def lista_pasantes(request):
             'alerta_conclusion': alerta_conclusion,
             'marca_pendiente': marca_pendiente
         })
+
+    # Paginación fija de 4 en 4
+    paginator = Paginator(lista_con_calculos, 4)  
+    page_number = request.GET.get('page')
+    pagina_actual = paginator.get_page(page_number)
         
     mapa_supervisores_json = json.dumps(mapa_supervisores)
 
     context = {
-        'pasantes_calculados': lista_con_calculos, 
+        'pasantes_calculados': pagina_actual.object_list, 
+        'pagina_actual': pagina_actual,
+        'areas_disponibles_filtro': areas_disponibles_filtro,
+        'area_seleccionada': area_seleccionada,
         'mi_unidad': "Toda la Empresa" if puede_asignar else mi_unidad,
         'supervisor_nombre_completo': obtener_nombre_completo_ldap(supervisor_actual),
         'puede_asignar': puede_asignar,
@@ -658,6 +669,7 @@ def lista_pasantes(request):
         'mapa_supervisores_json': mapa_supervisores_json 
     }
     return render(request, 'lista_pasantes_marca_actualizada/code.html', context)
+
 
 @login_required
 def gestionar_turnos(request):

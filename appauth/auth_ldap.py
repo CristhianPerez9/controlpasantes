@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.db import DatabaseError
 from ldap3 import Server, Connection, SUBTREE, NTLM
 from ldap3.core.exceptions import LDAPException
+from ldap3.utils.conv import escape_filter_chars  # <-- LÍNEA CORREGIDA
 from .models import PerfilUsuario
 
 class AutenticacionLDAP(ModelBackend):
@@ -42,7 +43,7 @@ class AutenticacionLDAP(ModelBackend):
                     raise ntlm_err
 
             # Ejecutar búsqueda en el Directorio Activo de COMTECO
-            search_filter = f"(sAMAccountName={username})"
+            search_filter = f"(sAMAccountName={escape_filter_chars(username)})"
             conn.search(search_base=LDAP_USER_BASE, search_filter=search_filter, search_scope=SUBTREE, attributes=ATTRIBUTES_TO_FETCH)
 
             if not conn.entries:
@@ -78,10 +79,11 @@ class AutenticacionLDAP(ModelBackend):
             user.email = email or ''
             user.set_unusable_password()  # La validación se gestiona en Active Directory, no local
             
-            # Asignamos permisos la primera vez que entra para que pueda ver el panel supervisor
+            # Asignamos permisos la primera vez que entra: staff=True pero NO superuser
+            # Los superusers deben asignarse manualmente en admin
             if created:
-                user.is_staff = True
-                user.is_superuser = True
+                user.is_staff = False  # Cambiar a False - solo login
+                user.is_superuser = False  # Cambiar a False - no automático
                 
             user.is_active = True
             user.save()

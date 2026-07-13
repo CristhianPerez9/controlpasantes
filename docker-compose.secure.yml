@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: asistencia_django
+    ports:
+      - "8000:8000"
+    environment:
+      # Leer desde variables de entorno, NO hardcodear
+      POSTGRES_DB: ${POSTGRES_DB:-asistencia_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pasantes}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error}
+      POSTGRES_HOST: ${POSTGRES_HOST:-192.9.200.162}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DEBUG: ${DEBUG:-False}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?error}
+      
+      # Superusuario: SOLO para desarrollo, comentar en producción
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-}
+    restart: unless-stopped
+    env_file:
+      - .env.local  # Archivo local con secretos (NO commitear)
+    # Limitar recursos
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
