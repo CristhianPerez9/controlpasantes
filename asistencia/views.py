@@ -519,6 +519,28 @@ def generacion_reportes(request):
     if not hay_filtros:
         reporte_final = reporte_final[:15] 
         total_horas_periodo = sum(item['horas_dia'] for item in reporte_final)
+
+    # NUEVO: LÓGICA DE EXPORTACIÓN A EXCEL (CSV)
+    if request.GET.get('export') == 'csv':
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = f'attachment; filename="Reporte_Asistencia_{date.today()}.csv"'
+        
+        writer = csv.writer(response, delimiter=';')
+        writer.writerow(['Pasante', 'Carnet de Identidad', 'Area', 'Fecha', 'Hora de Entrada', 'Hora de Salida', 'Horas Computadas'])
+        
+        for item in reporte_final:
+            ent = item['entrada'].strftime('%H:%M') if item['entrada'] else '--:--'
+            sal = item['salida'].strftime('%H:%M') if item['salida'] else '--:--'
+            writer.writerow([
+                item['pasante'].nombre_completo,
+                item['pasante'].ci,
+                item['pasante'].area,
+                item['fecha'].strftime('%d/%m/%Y'),
+                ent,
+                sal,
+                item['horas_dia']
+            ])
+        return response
         
     context = {
         'pasantes': pasantes_lista, 
@@ -610,16 +632,13 @@ def lista_pasantes(request):
                     messages.success(request, f"¡Pasante {nombre} guardado exitosamente!")
             return redirect('lista_pasantes')
 
-    # --- CARGAR LA BASE DE PASANTES ---
     if puede_asignar:
         pasantes_base = Pasante.objects.all().order_by('nombre_completo')
     else:
         pasantes_base = Pasante.objects.filter(supervisores=supervisor_actual).order_by('nombre_completo')
 
-    # --- CAMBIO SOLICITADO: Extraer píldoras ÚNICAMENTE de las áreas que ya tienen pasantes asignados
     areas_disponibles_filtro = sorted(list(set([p.area for p in pasantes_base if p.area])))
 
-    # Filtrado según la píldora elegida
     area_seleccionada = request.GET.get('area', 'Todos')
     pasantes_filtrados = pasantes_base
     if area_seleccionada != 'Todos' and area_seleccionada != '':
@@ -649,7 +668,6 @@ def lista_pasantes(request):
             'marca_pendiente': marca_pendiente
         })
 
-    # Paginación fija de 4 en 4
     paginator = Paginator(lista_con_calculos, 4)  
     page_number = request.GET.get('page')
     pagina_actual = paginator.get_page(page_number)

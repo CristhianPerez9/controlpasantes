@@ -73,14 +73,6 @@
                     <h2 class="text-xl md:text-2xl font-bold text-slate-800">Alta de Pasantes</h2>
                     <p class="text-xs md:text-sm text-slate-500 mt-1">Asigna el período y define el total de horas.</p>
                 </div>
-                
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="p-3 md:p-4 mb-2 rounded-xl text-xs md:text-sm font-bold {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
 
                 <form method="POST" class="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm flex flex-col gap-4 md:gap-5">
                     {% csrf_token %}
@@ -152,8 +144,16 @@
             <div class="w-full {% if puede_asignar %}xl:w-[65%]{% else %}xl:w-full{% endif %} flex flex-col gap-4 mt-4 xl:mt-0">
                 
                 <div class="flex flex-col gap-3 xl:mt-8 mb-2">
-                    <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-slate-500">
-                        <i class="fa-solid fa-chart-pie"></i> Balance de Horas y Calificaciones
+                    
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div class="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-slate-500">
+                            <i class="fa-solid fa-chart-pie"></i> Balance de Horas y Calificaciones
+                        </div>
+                        
+                        <div class="relative w-full sm:w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="buscadorPasantes" placeholder="Buscar por Nombre o CI..." class="w-full text-xs bg-white border border-slate-200 rounded-full pl-9 pr-4 py-2 outline-none focus:border-[#cc0000] transition-colors shadow-sm">
+                        </div>
                     </div>
 
                     {% if puede_asignar %}
@@ -183,7 +183,7 @@
                             <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
                                 {% if pasantes_calculados %}
                                     {% for calc in pasantes_calculados %}
-                                    <tr class="hover:bg-slate-50/50 transition-colors">
+                                    <tr class="hover:bg-slate-50/50 transition-colors fila-pasante" data-search="{{ calc.objeto.nombre_completo|lower }} {{ calc.objeto.ci|lower }}">
                                         
                                         <td class="py-3 md:py-4 px-4 md:px-5 flex flex-col items-start gap-1">
                                             <p class="font-bold text-slate-800 text-xs md:text-sm">{{ calc.objeto.nombre_completo }}</p>
@@ -246,7 +246,7 @@
                                             {% if calc.objeto.nota_final %}
                                                 <span class="bg-indigo-50 text-indigo-600 font-bold px-2.5 py-1.5 rounded-lg border border-indigo-100 shadow-sm">{{ calc.objeto.nota_final }} / 100</span>
                                             {% else %}
-                                                <span class="text-slate-300 font-bold text-[8px] md:text-[9px] uppercase tracking-wider bg-slate-50 px-2 py-1 rounded border border-slate-100"><i class="fa-solid fa-hourglass-half mr-1"></i>En Proceso</span>
+                                                <span class="text-slate-300 font-bold text-[8px] md:text-[9px] uppercase tracking-wider bg-slate-50 px-2 py-1 rounded border border-slate-100"><i class="fa-solid fa-lock mr-1"></i>En Proceso</span>
                                             {% endif %}
                                         </td>
 
@@ -360,7 +360,40 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+    // NOTIFICACIONES FLASH (SweetAlert2)
+    {% if messages %}
+    document.addEventListener("DOMContentLoaded", function() {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        });
+        {% for message in messages %}
+            Toast.fire({
+                icon: "{% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% else %}success{% endif %}",
+                title: "{{ message|escapejs }}"
+            });
+        {% endfor %}
+    });
+    {% endif %}
+
+    // BUSCADOR EN TIEMPO REAL
+    document.getElementById('buscadorPasantes')?.addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        document.querySelectorAll('.fila-pasante').forEach(row => {
+            const searchData = row.getAttribute('data-search') || '';
+            row.style.display = searchData.includes(term) ? '' : 'none';
+        });
+    });
+
     function toggleMenu(menuId) {
         document.querySelectorAll('.dropdown-menu').forEach(menu => {
             if (menu.id !== menuId) {
